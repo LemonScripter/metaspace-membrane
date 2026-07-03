@@ -33,7 +33,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 |---|---|---|
 | WebAssembly hard membrane | `python products/app_membrane/run_wasm_demo.py` | 2 ALLOW / 3 DENY + physical check, exit 0 |
 | Unbypassability | `python products/app_membrane/bypass_proof.py` | `unknown import` link error, exit 0 |
-| Real program under WASI | `python products/app_membrane/wasi/run_wasi_demo.py` | 1 WROTE / 2 DENY; `.bio` scope = the only filesystem, exit 0 |
+| Real program under WASI | `python products/app_membrane/wasi/run_wasi_demo.py` | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused), exit 0 |
 | Epistemic hard tier | `python evidence/demos/run_knowledge_demo.py` | 2 ALLOW / 5 DENY, exit 0 |
 | Agent membrane | `python products/ai_membrane/test_hook.py` | 12/12, exit 0 |
 

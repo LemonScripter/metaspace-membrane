@@ -1,9 +1,12 @@
 # SYNTHESIZED
 # MetaSpace.Bio Engine Project — WASI substrate demo constitution (Product A, real programs)
 # The guest is a REAL compiled program (Rust -> wasm32-wasip1) running under WASI.
-# The membrane grants filesystem access as a WASI preopen derived from this scope.
-# WASI is capability-based: any path outside the preopen has no capability and is denied.
+# The membrane maps each FILESYSTEM capability to a WASI preopen with matching permissions:
+#   read  -> READ_ONLY preopen   (the guest can read but not write/create here)
+#   write -> READ_WRITE preopen  (the guest can produce output here)
+# Any path outside the preopens has no capability at all and is denied.
 
 CAPABILITIES {
-  FILESYSTEM write "sandbox/**"      # the guest may write only under the granted sandbox dir
+  FILESYSTEM read  "input/**"      # read-only input directory
+  FILESYSTEM write "output/**"     # writable output directory
 }

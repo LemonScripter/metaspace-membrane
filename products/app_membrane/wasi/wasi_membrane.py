@@ -33,17 +33,21 @@ class WasiMembrane:
         self.base_dir = os.path.abspath(base_dir or HERE)
         with open(bio_path, encoding="utf-8") as fh:
             bio = fh.read()
-        # derive preopens from FILESYSTEM write scopes
-        self.preopens = []   # (host_dir, guest_path, bio_scope)
+        # derive preopens from FILESYSTEM scopes, mapping read/write -> WASI permissions
+        self.preopens = []   # (host_dir, guest_path, bio_scope, mode, dir_perms, file_perms)
         for kind, mode, scopes in parse_capabilities(bio):
-            if kind == "FILESYSTEM" and mode == "write":
+            if kind == "FILESYSTEM" and mode in ("read", "write"):
+                if mode == "write":
+                    dperms, fperms = wasmtime.DirPerms.READ_WRITE, wasmtime.FilePerms.READ_WRITE
+                else:
+                    dperms, fperms = wasmtime.DirPerms.READ_ONLY, wasmtime.FilePerms.READ_ONLY
                 for s in scopes:
                     prefix = s.split("/**")[0].split("/*")[0].strip("/")
                     if not prefix:
                         continue
                     host_dir = os.path.join(self.base_dir, prefix)
                     os.makedirs(host_dir, exist_ok=True)
-                    self.preopens.append((host_dir, "/" + prefix, s))
+                    self.preopens.append((host_dir, "/" + prefix, s, mode, dperms, fperms))
 
     def run(self, wasm_path: str, stdout_path: str):
         """Run the guest; its filesystem is limited to the derived preopens."""
@@ -51,8 +55,9 @@ class WasiMembrane:
         store = wasmtime.Store(engine)
         wasi = wasmtime.WasiConfig()
         wasi.stdout_file = stdout_path
-        for host_dir, guest_path, _scope in self.preopens:
-            wasi.preopen_dir(host_dir, guest_path)   # the ONLY filesystem the guest sees
+        for host_dir, guest_path, _scope, _mode, dperms, fperms in self.preopens:
+            # the ONLY filesystem the guest sees, with read/write granularity from the .bio
+            wasi.preopen_dir(host_dir, guest_path, dperms, fperms)
         store.set_wasi(wasi)
 
         linker = wasmtime.Linker(engine)

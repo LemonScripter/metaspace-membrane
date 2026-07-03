@@ -147,7 +147,7 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 |---|---|---|
 | `products/app_membrane/run_wasm_demo.py` | WebAssembly hard membrane | 2 ALLOW / 3 DENY + physical check |
 | `products/app_membrane/bypass_proof.py` | Unbypassability | `unknown import` link error |
-| `products/app_membrane/wasi/run_wasi_demo.py` | Real program under WASI capabilities | 1 WROTE / 2 DENY, `.bio` scope = only filesystem |
+| `products/app_membrane/wasi/run_wasi_demo.py` | Real program under WASI capabilities | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused) |
 | `evidence/demos/run_knowledge_demo.py` | Epistemic hard tier | 2 ALLOW / 5 DENY |
 | `products/ai_membrane/test_hook.py` | Agent membrane | 12/12 |
 
