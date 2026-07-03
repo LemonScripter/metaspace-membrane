@@ -64,7 +64,8 @@ def main():
         ("FILESYSTEM", "write", "logs/app.log",  "ALLOW", "declared write"),
         ("FILESYSTEM", "write", "config.json",   "DENY",  "write outside the write scope (config is read-only)"),
         ("SUBPROCESS", "exec",  "rm -rf /",      "DENY",  "UNDECLARED capability -> deny-by-default (the app never did this)"),
-        ("NETWORK",    "out",   "api.example.com", "ALLOW", "declared network out"),
+        ("NETWORK",    "out",   "api.example.com", "ALLOW", "declared network host (auto-derived from the URL)"),
+        ("NETWORK",    "out",   "evil.example.com", "DENY", "host not in the synthesized allowlist"),
     ]
 
     print("  Enforcement against the synthesized constitution:")
@@ -79,8 +80,8 @@ def main():
     if ok:
         print("  RESULT: PASS - the code's own effects became the policy that bounds it;")
         print("          undeclared effects are denied by default.")
-        print("  Note: the constitution is SYNTHESIZED (not ratified) and network host scopes")
-        print("        are not auto-derived - a human ratifies before it is trusted.")
+        print("  Note: the constitution is SYNTHESIZED (not ratified) - a human reviews and")
+        print("        ratifies it before it is trusted; the runtime membrane is the guarantee.")
         return 0
     print("  RESULT: FAIL")
     return 1

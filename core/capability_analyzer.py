@@ -18,6 +18,7 @@ Usage:
 import ast
 import sys
 import os
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -159,7 +160,12 @@ class CapabilityVisitor(ast.NodeVisitor):
             kind, mode = METHOD_SIGNATURES[bare]; evidence = f".{bare}()"
 
         if kind:
-            scope = self._fs_scope(node, dotted, bare) if kind == "FILESYSTEM" else ""
+            if kind == "FILESYSTEM":
+                scope = self._fs_scope(node, dotted, bare)
+            elif kind == "NETWORK" and mode == "out":
+                scope = self._net_scope(node)
+            else:
+                scope = ""
             self._add_capability(kind, mode, evidence, node, scope)
 
         # import-path mutation
@@ -207,6 +213,25 @@ class CapabilityVisitor(ast.NodeVisitor):
             return ""
         c = _const(pn)
         return c if isinstance(c, str) else _text(pn)
+
+    def _net_scope(self, node) -> str:
+        """Extract the network host from a call's URL/address argument (for the allowlist)."""
+        # HTTP-style: first positional arg is a URL or bare host string
+        if node.args:
+            c = _const(node.args[0])
+            if isinstance(c, str):
+                netloc = urlparse(c).netloc
+                if netloc:                       # "scheme://user@host:port/..." -> host
+                    return netloc.split("@")[-1].split(":")[0]
+                # bare host literal (e.g. mqtt.connect("broker.example.com", 1883))
+                if "." in c and "/" not in c and " " not in c:
+                    return c.split(":")[0]
+            # socket.create_connection((host, port)) / sock.connect((host, port))
+            if isinstance(node.args[0], ast.Tuple) and node.args[0].elts:
+                h = _const(node.args[0].elts[0])
+                if isinstance(h, str):
+                    return h
+        return ""
 
     def _open_mode(self, node) -> str:
         if len(node.args) >= 2:
