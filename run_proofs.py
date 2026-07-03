@@ -17,10 +17,11 @@ import subprocess
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 PROOFS = [
-    ("App membrane - WebAssembly hard proof", "products/app_membrane/run_wasm_demo.py"),
-    ("App membrane - unbypassability proof",  "products/app_membrane/bypass_proof.py"),
-    ("Knowledge membrane",                    "evidence/demos/run_knowledge_demo.py"),
-    ("Agent membrane",                        "products/ai_membrane/test_hook.py"),
+    ("App membrane - WebAssembly hard proof",  "products/app_membrane/run_wasm_demo.py"),
+    ("App membrane - unbypassability proof",   "products/app_membrane/bypass_proof.py"),
+    ("App membrane - WASI real-program proof", "products/app_membrane/wasi/run_wasi_demo.py"),
+    ("Knowledge membrane",                     "evidence/demos/run_knowledge_demo.py"),
+    ("Agent membrane",                         "products/ai_membrane/test_hook.py"),
 ]
 
 

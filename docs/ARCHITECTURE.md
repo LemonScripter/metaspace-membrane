@@ -121,8 +121,11 @@ The epistemic membrane alone is only **advisory** — a malicious app could simp
 ### Product A — App membrane  *(hard, WebAssembly only)*
 Any app is contained within its `.bio`: the app can only do what the constitution allows.
 - Only the unbypassable WebAssembly form is shipped as the product — a bypassable
-  language-level variant is not. The critical path is a real language→WebAssembly toolchain
-  with syscall→host-import mediation (the WASI capability model).
+  language-level variant is not.
+- Two forms are demonstrated: (a) **custom capability imports** — a guest reaches the world
+  only through host-granted gates mediated by `core.guard`; (b) the **WASI capability model** —
+  a real compiled program (Rust → `wasm32-wasip1`) whose filesystem is limited to preopens
+  derived from the `.bio`. The WASI form scales to any language without per-app host functions.
 
 ### Product B — Agent membrane  *(shippable today)*
 The current AI is contained within its session constitution: the agent can only do what it
@@ -144,6 +147,7 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 |---|---|---|
 | `products/app_membrane/run_wasm_demo.py` | WebAssembly hard membrane | 2 ALLOW / 3 DENY + physical check |
 | `products/app_membrane/bypass_proof.py` | Unbypassability | `unknown import` link error |
+| `products/app_membrane/wasi/run_wasi_demo.py` | Real program under WASI capabilities | 1 WROTE / 2 DENY, `.bio` scope = only filesystem |
 | `evidence/demos/run_knowledge_demo.py` | Epistemic hard tier | 2 ALLOW / 5 DENY |
 | `products/ai_membrane/test_hook.py` | Agent membrane | 12/12 |
 

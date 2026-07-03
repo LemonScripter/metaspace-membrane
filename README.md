@@ -44,7 +44,7 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 | Contains | any application ⊂ its `.bio` | the coding assistant ⊂ its limits |
 | Chokepoint | WebAssembly capability import | Claude Code PreToolUse hook |
 | Guarantee | **unbypassable** (hard, WebAssembly only) | hard on the agent (sits outside it) |
-| Status | WebAssembly substrate (critical path) | **shippable today** |
+| Status | WebAssembly + WASI substrate (real programs, demonstrated) | **shippable today** |
 
 Both are built on the same `core/` decision engine (`guard.py`) and the same `.bio` file.
 
@@ -60,10 +60,11 @@ python run_proofs.py        # runs all four proofs; exit 0 if every one passes
 Or run them individually:
 
 ```bash
-python products/app_membrane/run_wasm_demo.py     # 2 ALLOW / 3 DENY + physical check
-python products/app_membrane/bypass_proof.py      # ungranted gate -> unknown import (blocked)
-python evidence/demos/run_knowledge_demo.py       # 2 ALLOW / 5 DENY (hallucination blocked)
-python products/ai_membrane/test_hook.py          # 12/12
+python products/app_membrane/run_wasm_demo.py         # 2 ALLOW / 3 DENY + physical check
+python products/app_membrane/bypass_proof.py          # ungranted gate -> unknown import (blocked)
+python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
+python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (hallucination blocked)
+python products/ai_membrane/test_hook.py              # 12/12
 ```
 
 No hosted CI required — the proof is a command anyone can run.

@@ -10,6 +10,11 @@ venv/
 guest_app.wat
 out/
 _diag/
+sandbox/
+guest_stdout.txt
+
+# Rust build output (guest.wasm is committed prebuilt; target/ is not)
+target/
 
 # OS
 .DS_Store
