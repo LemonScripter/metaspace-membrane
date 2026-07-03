@@ -2,7 +2,7 @@
 
 **A deterministic safety membrane for machine-generated software.**
 
-![proofs](../../actions/workflows/proofs.yml/badge.svg)
+![proofs: reproducible](https://img.shields.io/badge/proofs-reproducible-brightgreen)
 
 MetaSpace Membrane turns an *undecidable* question — *"is this AI doing the right thing?"* —
 into a *decidable* one — *"is this effect inside the declared boundary?"* — and enforces the
@@ -50,23 +50,23 @@ Both are built on the same `core/` decision engine (`guard.py`) and the same `.b
 
 ---
 
-## Run the proofs (the evidence is the build)
+## Run the proofs (the evidence is a reproducible run)
 
 ```bash
 pip install wasmtime
+python run_proofs.py        # runs all four proofs; exit 0 if every one passes
+```
 
-# Product A — WebAssembly hard membrane
+Or run them individually:
+
+```bash
 python products/app_membrane/run_wasm_demo.py     # 2 ALLOW / 3 DENY + physical check
 python products/app_membrane/bypass_proof.py      # ungranted gate -> unknown import (blocked)
-
-# Epistemic (KNOWLEDGE) membrane
 python evidence/demos/run_knowledge_demo.py       # 2 ALLOW / 5 DENY (hallucination blocked)
-
-# Product B — Agent membrane
 python products/ai_membrane/test_hook.py          # 12/12
 ```
 
-Every command exits `0` on success. CI runs all of them on every push.
+No hosted CI required — the proof is a command anyone can run.
 
 ---
 

@@ -135,9 +135,10 @@ heuristic; a restart is needed to activate; on error it fails closed.
 
 ---
 
-## 6. The proof is CI, not a PDF
+## 6. The proof is a reproducible run, not a PDF
 
-Every claim is a **reproducible test anyone can run**. The green build is the proof.
+Every claim is a **reproducible test anyone can run** — no hosted CI required. One command
+(`python run_proofs.py`) executes all of them.
 
 | Artifact | What it proves | Command |
 |---|---|---|
@@ -158,5 +159,5 @@ metaspace-membrane/
 │   └─ ai_membrane/    hook + install.py + session.constitution.bio        [shippable]
 ├─ evidence/      demos/ (runnable proofs) · DECISIONS.md
 ├─ docs/          ARCHITECTURE.md (this document)
-└─ .github/workflows/proofs.yml   CI = live evidence, green badge
+└─ run_proofs.py  one command runs every proof (reproducible evidence, no hosted CI)
 ```

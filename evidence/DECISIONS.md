@@ -35,4 +35,4 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | Epistemic hard tier | `python evidence/demos/run_knowledge_demo.py` | 2 ALLOW / 5 DENY, exit 0 |
 | Agent membrane | `python products/ai_membrane/test_hook.py` | 12/12, exit 0 |
 
-The evidence is the CI run, not a document: the green badge reproduces all of the above.
+The evidence is a reproducible run, not a document: `python run_proofs.py` reproduces all of the above.
