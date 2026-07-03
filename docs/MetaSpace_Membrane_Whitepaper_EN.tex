@@ -1,0 +1,179 @@
+% ============================================================
+%  MetaSpace Membrane — Technical whitepaper — ENGLISH
+%  Build: tectonic MetaSpace_Membrane_Whitepaper_EN.tex
+%  Discipline: every claim is [MEASURED] (real, reproducible run) or
+%              [ARCH] (true by construction / by cited theorem).
+%              No mock data. No benchmarks. No marketing numbers.
+% ============================================================
+\documentclass[10pt,a4paper]{article}
+
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setsansfont{Segoe UI}
+\setmonofont{Consolas}
+\usepackage[english]{babel}
+
+\usepackage{geometry}
+\geometry{left=1.6cm, right=1.6cm, top=1.1cm, bottom=1.0cm}
+
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{msblue}{RGB}{20, 70, 150}
+\definecolor{mslight}{RGB}{234, 241, 251}
+\definecolor{msgray}{RGB}{88, 88, 88}
+\definecolor{msline}{RGB}{200, 200, 200}
+\definecolor{okgreen}{RGB}{20, 120, 55}
+
+\setlength{\emergencystretch}{3em}
+\sloppy
+\linespread{1.03}
+\pagestyle{plain}
+\setlist{leftmargin=1.3em, itemsep=1pt, topsep=2pt, parsep=0pt}
+\setlength{\parskip}{3.0pt}
+
+\newcolumntype{R}{>{\raggedright\arraybackslash}X}
+\newcommand{\code}[1]{\texttt{\footnotesize #1}}
+\newcommand{\measured}{\textcolor{msblue}{\scriptsize\textbf{[MEASURED]}}}
+\newcommand{\arch}{\textcolor{msgray}{\scriptsize\textbf{[ARCH]}}}
+
+\newcommand{\titleband}[3]{%
+  \noindent\textcolor{msblue}{\rule{\linewidth}{2pt}}\\[4pt]
+  \noindent\begin{minipage}[c]{1.5cm}\includegraphics[height=1.35cm]{logo.png}\end{minipage}%
+  \hspace{0.30cm}%
+  \begin{minipage}[c]{\dimexpr\linewidth-1.9cm}%
+    {\LARGE\bfseries\color{msblue} #1}\\[2pt]
+    {\large #2}\\[2pt]
+    {\small\itshape\color{msgray} #3}%
+  \end{minipage}\\[4pt]
+  \noindent\textcolor{msline}{\rule{\linewidth}{0.6pt}}\par\vspace{3pt}
+}
+\newcommand{\sect}[1]{\par\vspace{4pt}{\sffamily\bfseries\color{msblue}\normalsize #1}\par\vspace{1pt}}
+
+\begin{document}
+
+\titleband{MetaSpace Membrane}{Deterministic Containment for Machine-Generated Software}{An undecidable question turned into a decidable one, and the answer enforced deny-by-default.}
+
+\sect{Abstract}
+Machine-generated software cannot be verified for \emph{intent}: by Rice's theorem, whether an
+arbitrary program conforms to its author's intent is undecidable. MetaSpace Membrane replaces
+verification of intent with \emph{containment of effect}. A program's effects are constrained to
+a boundary declared in a single, deliberately Turing-incomplete \code{.bio} constitution, and any
+effect outside the boundary is deterministically refused. Containment reduces to \emph{set
+membership}, which is decidable, so the runtime decision is deterministic and reproducible. We
+describe three composable membranes (capability, value-invariant, epistemic), a provenance chain
+(synthesis $\to$ human ratification $\to$ production gate), and an evidence ledger of nine
+reproducible proofs run by a single command. We are explicit about what is \emph{hard}
+(unbypassable under the WebAssembly capability model) and what is \emph{soft} (semantic
+faithfulness, non-deterministic and non-enforcing).
+
+\sect{1.\quad Problem --- intent is undecidable}
+The correctness question --- \emph{does the program do what its author intended?} --- is
+undecidable: Rice's theorem states that every non-trivial semantic property of programs is
+undecidable. For machine-generated code the gap is acute: the generator's intent is not
+mechanically checkable, and a plausible-looking program may take effects its author never
+sanctioned --- deleting files, exfiltrating data, or acting on invented facts. Verifying
+\emph{correctness} therefore does not scale to this setting.
+
+\sect{2.\quad Approach --- containment, not correctness}
+We substitute a decidable question. Instead of \emph{``is the program right?''} we ask
+\emph{``is the program's effect inside the declared boundary?''} --- a set-membership test, which
+is decidable and deterministic. The boundary is a \code{.bio} constitution, deliberately
+Turing-incomplete, so the policy is finite and analyzable. A ``bug'' is redefined as \emph{a
+deviation from the constitution}: machine-measurable and enforceable. \arch
+
+\sect{3.\quad Architecture --- one pattern, three membranes}
+All three membranes are the same reference-monitor pattern at a chokepoint,
+\textbf{deny-by-default}, with the decision made by the constitution.
+\begin{itemize}
+\item \textbf{Capability membrane} --- mediates effects on the world (filesystem, network, subprocess, \ldots).
+\item \textbf{Value-invariant membrane} --- guards declared safety bounds.
+\item \textbf{Epistemic membrane} --- bounds factual assertion and knowledge-based actuation.
+\end{itemize}
+\noindent\textbf{Guarantee ladder.} A membrane is only as hard as its chokepoint is unbypassable:
+heuristic (advisory) $<$ language-level (bypassable via \code{ctypes}/syscalls) $<$ harness-level
+(hard for the agent, since it sits outside it) $<$ WebAssembly (unbypassable: a guest has no
+ambient authority). \arch\\
+\noindent\textbf{Composition.} The epistemic membrane alone is only advisory --- an app may
+simply not call it. It becomes hard \emph{behind} the capability membrane, which guarantees the
+sole path to the world is a mediated gate. The three compose in defence-in-depth. \arch
+
+\sect{4.\quad Provenance chain --- synthesis, ratification, gate}
+\begin{itemize}
+\item \textbf{Synthesis.} Static analysis of code drafts a constitution, marked
+\textsc{synthesized}. This is a name-based heuristic, not a guarantee. \arch
+\item \textbf{Ratification.} A human reviews and stamps it \textsc{ratified}. The stamp is
+\emph{content-bound}: it carries a fingerprint of the enforced policy, so a later edit that widens
+a scope or adds a capability reads as \textsc{tampered}. \measured
+\item \textbf{Gate.} In production, only a \textsc{ratified} constitution runs; a \textsc{synthesized}
+or \textsc{tampered} one is refused, fail-closed. A policy is enforceable only after human
+ratification, and cannot be broadened afterwards without detection. \measured
+\end{itemize}
+
+\sect{5.\quad Evidence --- reproducible ledger (\code{python run\_proofs.py})}
+Every row below is a real run; all nine reproduce together with one command,
+result \textbf{9/9} (the exact command is in the closing section).
+
+\renewcommand{\arraystretch}{1.15}
+\noindent\begin{tabularx}{\linewidth}{@{}R p{1.7cm} >{\raggedright\arraybackslash}p{6.0cm}@{}}
+\toprule
+\footnotesize\textbf{Claim} & \footnotesize\textbf{Status} & \footnotesize\textbf{Evidence (observed output)} \\
+\midrule
+Capability membrane enforces deny-by-default (custom host imports) & \measured &
+\code{run\_wasm\_demo}: 2 ALLOW / 3 DENY; the forbidden writes are physically absent afterwards \\
+Unbypassability under WebAssembly & \measured\ \mbox{+} \arch &
+an ungranted gate (WASI \code{path\_open}) fails to link: \emph{``unknown import \ldots\ has not been defined''} \\
+A real compiled program is contained by WASI capabilities & \measured &
+Rust $\to$ \code{wasm32-wasip1}: reads a read-only input (READ), writes a writable output (WROTE),
+is refused when writing into the read-only input (\code{ENOTCAPABLE}) or outside all preopens \\
+Code $\to$ constitution $\to$ enforcement (closed loop) & \measured &
+the synthesized policy bounds the app; an \emph{undeclared} subprocess is denied by default, and an
+out-of-allowlist network host is denied \\
+Ratification is content-bound & \measured &
+\textsc{synthesized} $\to$ \textsc{ratified} $\to$ \textsc{tampered} when the policy is widened after ratifying \\
+Production gate admits only \textsc{ratified} & \measured &
+\textsc{synthesized} and \textsc{tampered} are REFUSED; \textsc{ratified} RUNS and then enforces \\
+Epistemic hard tier (referential integrity, schema/domain, provenance-locked actuation, citation) & \measured &
+\code{run\_knowledge\_demo}: 2 ALLOW / 5 DENY (invented entity, out-of-domain enum, dangling reference, missing citation, ungrounded actuation) \\
+Epistemic soft tier flags but never blocks & \measured\ \mbox{+} \arch &
+a faithful claim is flagged SUPPORTED, an invented figure UNSUPPORTED; the verdict never enforces \\
+Agent membrane mediates the coding agent's own tool calls & \measured &
+PreToolUse hook, 12/12 cases: project-only writes, network host allowlist, dangerous-command block, fail-closed on unreadable input \\
+\bottomrule
+\end{tabularx}
+
+\sect{6.\quad Scope, trust boundary \& honest limits}
+\begin{itemize}
+\item The \emph{hard} guarantee holds under the WebAssembly capability model. A language-level
+guard is bypassable (\code{ctypes}, direct syscalls) and is therefore \emph{not} shipped as a product.
+\item Constitution synthesis is a static, name-based heuristic; it can under-declare under heavy
+dynamism. The runtime membrane --- not the synthesis --- is the guarantee.
+\item The epistemic \emph{soft} tier (semantic faithfulness) is non-deterministic and does not
+enforce; it informs. Its backends are a dependency-free heuristic and an optional LLM judge.
+\item The agent membrane mediates tool \emph{effects}, not the model's prose; its shell-command
+analysis is heuristic.
+\item \textbf{TCB:} the host runtime (\code{wasmtime}) and the operating system are assumed intact.
+WASI filesystem granularity is at the directory/permission level.
+\item This artifact does \emph{not} use SMT/Z3 proof or hardware synthesis; those belong to the
+broader MetaSpace.Bio programme and are out of scope here. No figure above is a benchmark or a
+marketing number: every \measured\ item is a reproducible run.
+\end{itemize}
+
+\sect{Reproducibility \& availability}
+Source and proofs: \href{https://github.com/LemonScripter/metaspace-membrane}{\code{github.com/LemonScripter/metaspace-membrane}}.
+One command reproduces the entire ledger: \code{python run\_proofs.py}.
+
+\vspace{3pt}
+\noindent\textcolor{msline}{\rule{\linewidth}{0.6pt}}\\[1pt]
+{\scriptsize\color{msgray}\textbf{IP:} patent pending.\quad
+\textbf{MetaSpace.Bio Engine Project} $\bullet$ Sz\H{o}ke László-Ferenc $\bullet$
+\href{mailto:admin@metaspace.bio}{admin@metaspace.bio} $\bullet$ metaspace.bio}
+
+\end{document}

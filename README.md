@@ -168,7 +168,9 @@ evidence/      runnable proofs + decisions
 docs/          ARCHITECTURE.md
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full technical background.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full technical background, or the
+technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpace_Membrane_Whitepaper_EN.pdf)
+(LaTeX source alongside; every claim is a reproducible run or true by construction).
 
 ---
 
