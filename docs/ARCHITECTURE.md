@@ -108,8 +108,10 @@ The epistemic membrane alone is only **advisory** — a malicious app could simp
 
 **SOFT tier** (NOT deterministic — honestly not enforced):
 
-- Semantic faithfulness / entailment (does the text follow from the source) → an NLI model.
-- `soft_entailment()` flags it as `UNVERIFIED` and does **not** block. We do not pretend it is hard.
+- Semantic faithfulness / entailment (does the text follow from the source). Pluggable backends
+  (`core/entailment.py`): a dependency-free **heuristic** (figure/term presence — catches invented
+  numbers) and a **Claude LLM judge** (`claude` backend, the production path). `soft_entailment()`
+  **flags** the verdict and never **blocks** — the hard tier enforces, this tier informs.
 
 ---
 
@@ -149,6 +151,7 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 | `products/app_membrane/bypass_proof.py` | Unbypassability | `unknown import` link error |
 | `products/app_membrane/wasi/run_wasi_demo.py` | Real program under WASI capabilities | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused) |
 | `evidence/demos/run_knowledge_demo.py` | Epistemic hard tier | 2 ALLOW / 5 DENY |
+| `evidence/demos/run_entailment_demo.py` | Epistemic soft tier | flags SUPPORTED / UNSUPPORTED, never blocks |
 | `products/ai_membrane/test_hook.py` | Agent membrane | 12/12 |
 
 ---

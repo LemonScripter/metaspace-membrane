@@ -20,7 +20,8 @@ PROOFS = [
     ("App membrane - WebAssembly hard proof",  "products/app_membrane/run_wasm_demo.py"),
     ("App membrane - unbypassability proof",   "products/app_membrane/bypass_proof.py"),
     ("App membrane - WASI real-program proof", "products/app_membrane/wasi/run_wasi_demo.py"),
-    ("Knowledge membrane",                     "evidence/demos/run_knowledge_demo.py"),
+    ("Knowledge membrane (hard tier)",         "evidence/demos/run_knowledge_demo.py"),
+    ("Epistemic soft tier (entailment flag)",  "evidence/demos/run_entailment_demo.py"),
     ("Agent membrane",                         "products/ai_membrane/test_hook.py"),
 ]
 

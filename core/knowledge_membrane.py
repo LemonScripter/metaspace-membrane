@@ -180,9 +180,16 @@ class KnowledgeMembrane:
         return True
 
     # --- SOFT tier: NOT deterministic, does NOT block ---
-    def soft_entailment(self, claim: str, source_text: str):
-        """Semantic faithfulness (NLI). NOT decidable deterministically -> not enforced,
-        only flagged. A real implementation would call an NLI model (local/cloud)."""
-        self._log("ENTAIL", claim[:40], True, "SOFT tier: unverified (NLI stub)", tier="SOFT")
-        return {"verdict": "UNVERIFIED", "hard": False,
-                "note": "soft/NLI tier — not deterministic, does not block"}
+    def soft_entailment(self, claim: str, sources, backend: str = "heuristic"):
+        """Semantic faithfulness (entailment). NOT decidable deterministically -> not enforced,
+        only flagged. Backends: 'heuristic' (dependency-free) or 'claude' (LLM judge). See
+        core/entailment.py. This method NEVER blocks; the hard tier is what enforces."""
+        import sys as _sys
+        if HERE not in _sys.path:
+            _sys.path.insert(0, HERE)
+        from entailment import check_entailment
+        v = check_entailment(claim, sources, backend=backend)
+        self._log("ENTAIL", claim[:40], True,
+                  f"SOFT tier [{v.backend}] {v.verdict}: {v.note}", tier="SOFT")
+        return {"verdict": v.verdict, "score": v.score, "backend": v.backend,
+                "hard": False, "note": v.note}

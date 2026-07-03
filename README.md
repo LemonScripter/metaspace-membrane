@@ -64,6 +64,7 @@ python products/app_membrane/run_wasm_demo.py         # 2 ALLOW / 3 DENY + physi
 python products/app_membrane/bypass_proof.py          # ungranted gate -> unknown import (blocked)
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
 python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (hallucination blocked)
+python evidence/demos/run_entailment_demo.py          # soft tier flags faithfulness (never blocks)
 python products/ai_membrane/test_hook.py              # 12/12
 ```
 

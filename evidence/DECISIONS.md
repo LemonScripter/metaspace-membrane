@@ -26,6 +26,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | I-5 | **Agent membrane = a PreToolUse hook** in the harness, outside the agent. | An AI cannot be its own reference monitor — the membrane must sit outside it. |
 | I-6 | **Fail-closed error handling:** unreadable input or unloadable constitution → deny. | A membrane that cannot see the request must not allow it. A loud block beats a silent bypass. |
 | I-7 | **WASI capability model for real programs.** The filesystem preopen set is derived from the `.bio`; a WASI-compiled program (any language) can reach nothing else. | Standard, scalable containment of real compiled programs without per-app host functions. |
+| I-8 | **Soft tier = pluggable entailment backends** (`core/entailment.py`): a dependency-free heuristic and a Claude LLM judge. Flags, never blocks. | Real semantic faithfulness is non-deterministic (C-6); the soft tier informs while the hard tier enforces. |
 
 ## Evidence
 
@@ -35,6 +36,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | Unbypassability | `python products/app_membrane/bypass_proof.py` | `unknown import` link error, exit 0 |
 | Real program under WASI | `python products/app_membrane/wasi/run_wasi_demo.py` | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused), exit 0 |
 | Epistemic hard tier | `python evidence/demos/run_knowledge_demo.py` | 2 ALLOW / 5 DENY, exit 0 |
+| Epistemic soft tier | `python evidence/demos/run_entailment_demo.py` | flags SUPPORTED / UNSUPPORTED, never blocks, exit 0 |
 | Agent membrane | `python products/ai_membrane/test_hook.py` | 12/12, exit 0 |
 
 The evidence is a reproducible run, not a document: `python run_proofs.py` reproduces all of the above.
