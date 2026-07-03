@@ -27,6 +27,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | I-6 | **Fail-closed error handling:** unreadable input or unloadable constitution → deny. | A membrane that cannot see the request must not allow it. A loud block beats a silent bypass. |
 | I-7 | **WASI capability model for real programs.** The filesystem preopen set is derived from the `.bio`; a WASI-compiled program (any language) can reach nothing else. | Standard, scalable containment of real compiled programs without per-app host functions. |
 | I-8 | **Soft tier = pluggable entailment backends** (`core/entailment.py`): a dependency-free heuristic and a Claude LLM judge. Flags, never blocks. | Real semantic faithfulness is non-deterministic (C-6); the soft tier informs while the hard tier enforces. |
+| I-9 | **Content-bound ratification** (`core/provenance.py`). The RATIFIED stamp carries a fingerprint of the enforced policy (capabilities + knowledge + bash). A post-ratification edit that changes the policy reads as TAMPERED. | Ratification (C-5) must not be forgeable by editing the file after approval. |
 
 ## Evidence
 
@@ -36,6 +37,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | Unbypassability | `python products/app_membrane/bypass_proof.py` | `unknown import` link error, exit 0 |
 | Real program under WASI | `python products/app_membrane/wasi/run_wasi_demo.py` | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused), exit 0 |
 | Code -> constitution -> enforcement | `python evidence/demos/run_synth_demo.py` | synthesized policy bounds the app; an undeclared effect (subprocess) is denied by default, exit 0 |
+| Content-bound ratification | `python evidence/demos/run_ratify_demo.py` | SYNTHESIZED -> RATIFIED -> TAMPERED when the policy is widened after ratifying, exit 0 |
 | Epistemic hard tier | `python evidence/demos/run_knowledge_demo.py` | 2 ALLOW / 5 DENY, exit 0 |
 | Epistemic soft tier | `python evidence/demos/run_entailment_demo.py` | flags SUPPORTED / UNSUPPORTED, never blocks, exit 0 |
 | Agent membrane | `python products/ai_membrane/test_hook.py` | 12/12, exit 0 |

@@ -21,6 +21,7 @@ PROOFS = [
     ("App membrane - unbypassability proof",   "products/app_membrane/bypass_proof.py"),
     ("App membrane - WASI real-program proof", "products/app_membrane/wasi/run_wasi_demo.py"),
     ("Synthesis closed loop (code->bio->enforce)", "evidence/demos/run_synth_demo.py"),
+    ("Ratification (content-bound provenance)", "evidence/demos/run_ratify_demo.py"),
     ("Knowledge membrane (hard tier)",         "evidence/demos/run_knowledge_demo.py"),
     ("Epistemic soft tier (entailment flag)",  "evidence/demos/run_entailment_demo.py"),
     ("Agent membrane",                         "products/ai_membrane/test_hook.py"),
