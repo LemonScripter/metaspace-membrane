@@ -1,0 +1,31 @@
+name: proofs
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install wasmtime
+
+      - name: Product A — WebAssembly hard membrane
+        run: python products/app_membrane/run_wasm_demo.py
+
+      - name: Product A — unbypassability proof
+        run: python products/app_membrane/bypass_proof.py
+
+      - name: Epistemic (KNOWLEDGE) membrane
+        run: python evidence/demos/run_knowledge_demo.py
+
+      - name: Product B — agent membrane
+        run: python products/ai_membrane/test_hook.py

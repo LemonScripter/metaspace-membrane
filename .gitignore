@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Generated artifacts
+*.jsonl
+guest_app.wat
+out/
+_diag/
+
+# OS
+.DS_Store
+Thumbs.db

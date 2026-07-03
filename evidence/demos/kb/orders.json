@@ -1,0 +1,5 @@
+{
+  "O-1001": { "status": "shipped",   "total": 250,  "ref": "P-1" },
+  "O-1002": { "status": "delivered", "total": 999,  "ref": "P-2" },
+  "O-1003": { "status": "pending",   "total": 4200, "ref": "P-1" }
+}

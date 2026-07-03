@@ -1,0 +1,26 @@
+# SYNTHESIZED
+# MetaSpace.Bio Engine Project — Epistemic (KNOWLEDGE) membrane demo constitution
+# The knowledge scope of an AI customer-service app. The HARD tier is deterministic:
+# referential integrity + schema/domain + provenance-locked actuation + citation obligation.
+# (The SOFT/NLI faithfulness is NOT decided here — see knowledge_membrane.py.)
+
+KNOWLEDGE {
+
+  # 1) closed-world entity sets — referential integrity
+  ENTITY order   FROM "kb/orders.json"     # the set of EXISTING order ids
+  ENTITY product FROM "kb/products.json"   # the set of EXISTING product ids
+
+  # 2) schema + domain — schema/domain validation
+  FIELD order.status IN pending, shipped, delivered, refunded
+  FIELD order.total  RANGE 0 100000
+  FIELD order.ref    REF product           # referential integrity to another entity
+
+  # 3) provenance-locked actuation — a side-effect only from a granted source
+  ACTUATE refund PROVENANCE verified_db          # refund only from the verified DB data
+  ACTUATE email  PROVENANCE verified_db, human   # email from verified DB or human approval
+
+  # 4) citation obligation + known provenance sources
+  CITATION REQUIRED
+  SOURCE verified_db
+  SOURCE human
+}

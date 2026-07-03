@@ -1,0 +1,9 @@
+# SYNTHESIZED
+# MetaSpace.Bio Engine Project — WebAssembly demo app constitution (Product A)
+# The guest (untrusted app) only receives the gates granted here. Everything else is
+# deterministically denied (deny-by-default) — and in WebAssembly there is nothing to bypass.
+
+CAPABILITIES {
+  FILESYSTEM write "out/**"          # scope: may only write under the sandbox out/
+  NETWORK    out   "api.allowed.com" # host allowlist: outbound traffic may only go here
+}

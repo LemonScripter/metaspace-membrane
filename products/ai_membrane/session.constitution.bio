@@ -1,0 +1,32 @@
+# RATIFIED
+# MetaSpace.Bio Engine Project — Agent (session) membrane constitution [template]
+#
+# HARD membrane for a Claude Code session. Enforcement: a PreToolUse hook in the harness
+# (OUTSIDE the agent) — not self-discipline.
+#
+# {{PROJECT_ROOT}} is substituted by the installer / hook with the target project path.
+
+CELL AgentSession {
+
+  CAPABILITIES {
+    # write ONLY inside the project directory
+    FILESYSTEM write "{{PROJECT_ROOT}}/**";
+    # read anywhere (so the agent can study any codebase)
+    FILESYSTEM read  "**";
+    # outbound network only to allowed hosts (edit for your project)
+    NETWORK    out   "docs.anthropic.com", "docs.claude.com";
+    # everything else: DENY (deny-by-default)
+  }
+
+  BASH_POLICY {
+    # obviously dangerous patterns — deterministic block
+    DENY "rm -rf";
+    DENY "Remove-Item -Recurse";
+    DENY "git push";
+    DENY "git reset --hard";
+    DENY ":(){ :";
+    DENY "mkfs";
+    DENY "> /dev/sd";
+  }
+
+}

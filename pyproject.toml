@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metaspace-membrane"
+version = "0.1.0"
+description = "A deterministic safety membrane for machine-generated software (MetaSpace.Bio Engine Project)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary — patent pending" }
+authors = [{ name = "Szőke László-Ferenc", email = "admin@metaspace.bio" }]
+keywords = ["security", "sandbox", "webassembly", "capability", "ai-safety", "guardrail"]
+dependencies = ["wasmtime>=13"]
+
+[project.urls]
+Homepage = "https://metaspace.bio"
+
+[tool.setuptools]
+packages = ["core", "products.app_membrane", "products.ai_membrane"]
