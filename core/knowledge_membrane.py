@@ -185,9 +185,10 @@ class KnowledgeMembrane:
         only flagged. Backends: 'heuristic' (dependency-free) or 'claude' (LLM judge). See
         core/entailment.py. This method NEVER blocks; the hard tier is what enforces."""
         import sys as _sys
-        if HERE not in _sys.path:
-            _sys.path.insert(0, HERE)
-        from entailment import check_entailment
+        _root = os.path.dirname(HERE)
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from core.entailment import check_entailment
         v = check_entailment(claim, sources, backend=backend)
         self._log("ENTAIL", claim[:40], True,
                   f"SOFT tier [{v.backend}] {v.verdict}: {v.note}", tier="SOFT")

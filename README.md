@@ -65,6 +65,7 @@ python products/app_membrane/bypass_proof.py          # ungranted gate -> unknow
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_ratify_demo.py              # ratification is content-bound (tamper detected)
+python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
 python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (hallucination blocked)
 python evidence/demos/run_entailment_demo.py          # soft tier flags faithfulness (never blocks)
 python products/ai_membrane/test_hook.py              # 12/12
@@ -151,6 +152,10 @@ python ratify.py app.constitution.bio --yes
 Ratification is **content-bound**: the stamp carries a fingerprint of the enforced policy, so
 a later edit that widens a scope or adds a capability is detected as TAMPERED 🔴 — you cannot
 ratify a policy and then quietly broaden it.
+
+In production, gate the membrane on ratification — `Guard(..., require_ratified=True)` (or
+`core.gate`) runs **only** a RATIFIED constitution; a SYNTHESIZED or TAMPERED one is refused,
+fail-closed. A policy is enforceable only after human ratification.
 
 ---
 

@@ -17,11 +17,11 @@ import json
 import hashlib
 import datetime
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
-from guard import parse_capabilities              # noqa: E402
-from knowledge_membrane import parse_knowledge     # noqa: E402
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from core.guard import parse_capabilities              # noqa: E402
+from core.knowledge_membrane import parse_knowledge     # noqa: E402
 
 RATIFIED_RE = re.compile(r'#\s*PROVENANCE:\s*RATIFIED\s+(\S+)\s+policy:([0-9a-f]+)', re.I)
 

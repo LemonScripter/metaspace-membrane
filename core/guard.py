@@ -19,6 +19,7 @@ syscalls). That is the demo/CI layer; the HARD guarantee is the WebAssembly memb
 
 import os
 import re
+import sys
 import json
 import builtins
 import fnmatch
@@ -58,9 +59,17 @@ def parse_capabilities(bio_text: str):
 # ---------------------------------------------------------------------------
 class Guard:
     def __init__(self, bio_text: str, base_dir: str, audit_path: str = None,
-                 provenance: str = "SYNTHESIZED"):
+                 provenance: str = "SYNTHESIZED", require_ratified: bool = False):
         self.base_dir = os.path.abspath(base_dir)
         self.provenance = provenance
+        if require_ratified:
+            # production gate: only a RATIFIED constitution may run (fail-closed).
+            # lazy import to avoid a circular import (gate -> provenance -> guard).
+            _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _root not in sys.path:
+                sys.path.insert(0, _root)
+            from core.gate import gate as _gate
+            self.provenance = _gate(bio_text, require_ratified=True)   # raises if not RATIFIED
         self.audit_path = audit_path or os.path.join(self.base_dir, "audit.jsonl")
         self.allowed = {}          # (kind, mode) -> [scope globs]
         for kind, mode, scopes in parse_capabilities(bio_text):
