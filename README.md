@@ -72,13 +72,26 @@ No hosted CI required — the proof is a command anyone can run.
 
 ## Install the agent membrane (Product B)
 
+**As a Claude Code plugin (one command):**
+
+```
+/plugin marketplace add LemonScripter/metaspace-membrane
+/plugin install metaspace-membrane@metaspace
+```
+
+Restart the session and run `/hooks` to confirm the PreToolUse membrane is active. The plugin
+ships a hardened default constitution (project-only writes, host allowlist, dangerous-command
+block); `${CLAUDE_PROJECT_DIR}` is used as the project boundary automatically.
+
+**Or as a portable installer** (writes `.claude/settings.json` directly, with an editable
+constitution in `.claude/metaspace/`):
+
 ```bash
 python products/ai_membrane/install.py /path/to/your/project
 ```
 
-This writes `.claude/settings.json` with a PreToolUse hook and drops an editable
-`session.constitution.bio` into `.claude/metaspace/`. Restart the Claude Code session, then
-run `/hooks` to confirm it is active. Removing the hook block reverts it.
+Restart the Claude Code session, then run `/hooks` to confirm it is active. Removing the hook
+block reverts either method.
 
 The session constitution is deny-by-default: writes are limited to the project directory,
 outbound network to an allowlist, and dangerous shell patterns are blocked.

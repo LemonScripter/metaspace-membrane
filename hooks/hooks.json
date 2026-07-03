@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Read|Bash|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/products/ai_membrane/session_guard_hook.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

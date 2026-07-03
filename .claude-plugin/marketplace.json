@@ -1,0 +1,11 @@
+{
+  "name": "metaspace",
+  "owner": { "name": "Szőke László-Ferenc", "email": "admin@metaspace.bio" },
+  "plugins": [
+    {
+      "name": "metaspace-membrane",
+      "source": "./",
+      "description": "Deny-by-default agent membrane (PreToolUse hook) that keeps the Claude Code agent inside a hardened .bio constitution."
+    }
+  ]
+}

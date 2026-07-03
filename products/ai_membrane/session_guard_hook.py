@@ -16,7 +16,9 @@ Allow: exit 0.
 
 Configuration (environment):
   METASPACE_PROJECT_ROOT  — the project root; substituted for {{PROJECT_ROOT}} in the .bio
-                            and used as the base_dir for scope matching (default: cwd).
+                            and used as the base_dir for scope matching. Falls back to
+                            CLAUDE_PROJECT_DIR (set by Claude Code when run as a plugin),
+                            then the current working directory.
   METASPACE_SESSION_BIO   — path to the constitution (default: sibling session.constitution.bio).
 
 HONEST LIMITS:
@@ -39,7 +41,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))   # .../metaspace-membrane
 sys.path.insert(0, REPO_ROOT)
 
-PROJECT_ROOT = os.environ.get("METASPACE_PROJECT_ROOT", os.getcwd()).replace("\\", "/")
+PROJECT_ROOT = (os.environ.get("METASPACE_PROJECT_ROOT")
+                or os.environ.get("CLAUDE_PROJECT_DIR")   # set by Claude Code (plugin/hook)
+                or os.getcwd()).replace("\\", "/")
 BIO_PATH = os.environ.get("METASPACE_SESSION_BIO",
                           os.path.join(HERE, "session.constitution.bio"))
 AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
