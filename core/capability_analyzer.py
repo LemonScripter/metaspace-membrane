@@ -323,6 +323,29 @@ def analyze_file(path: str):
     return v.f
 
 
+def _merge(a: Findings, b: Findings) -> Findings:
+    a.capabilities.extend(b.capabilities)
+    a.imports |= b.imports
+    a.invariants |= b.invariants
+    a.smells.extend(b.smells)
+    return a
+
+
+def analyze_path(path: str) -> Findings:
+    """Analyze a single .py file or every .py file under a directory (findings merged)."""
+    if os.path.isdir(path):
+        merged = Findings()
+        for root, _dirs, files in os.walk(path):
+            for fn in sorted(files):
+                if fn.endswith(".py"):
+                    try:
+                        _merge(merged, analyze_file(os.path.join(root, fn)))
+                    except SyntaxError:
+                        pass
+        return merged
+    return analyze_file(path)
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python capability_analyzer.py <path>")

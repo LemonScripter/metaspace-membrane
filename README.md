@@ -63,6 +63,7 @@ Or run them individually:
 python products/app_membrane/run_wasm_demo.py         # 2 ALLOW / 3 DENY + physical check
 python products/app_membrane/bypass_proof.py          # ungranted gate -> unknown import (blocked)
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
+python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (hallucination blocked)
 python evidence/demos/run_entailment_demo.py          # soft tier flags faithfulness (never blocks)
 python products/ai_membrane/test_hook.py              # 12/12
@@ -122,6 +123,23 @@ KNOWLEDGE {
 - **Capability** — mediates effects on the world (deny-by-default).
 - **Value invariant** — guards safety bounds.
 - **Knowledge** — grounded facts only: no invented entities, no ungrounded actuation.
+
+---
+
+## Synthesize a constitution from code
+
+Point the synthesizer at a file or directory; it detects the code's real effects
+(filesystem, network, env, subprocess, hardware, import-path) and drafts a `.bio` — marked
+`SYNTHESIZED`, since a human ratifies before it is trusted:
+
+```bash
+python synthesize.py path/to/app --out app.constitution.bio
+```
+
+`evidence/demos/run_synth_demo.py` runs the loop end-to-end: it synthesizes a constitution
+from a sample app, feeds it straight into the membrane, and shows the app can then only do
+what it declared — an effect it never had (a subprocess) is denied by default. This is a
+static heuristic; the runtime membrane, not the synthesis, is the guarantee.
 
 ---
 
