@@ -26,6 +26,7 @@ PROOFS = [
     ("Knowledge membrane (hard tier)",         "evidence/demos/run_knowledge_demo.py"),
     ("Epistemic soft tier (entailment flag)",  "evidence/demos/run_entailment_demo.py"),
     ("Agent membrane",                         "products/ai_membrane/test_hook.py"),
+    ("Structural shell policy (allowlist)",    "products/ai_membrane/test_shell_policy.py"),
 ]
 
 

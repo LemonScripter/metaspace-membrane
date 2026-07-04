@@ -78,6 +78,13 @@ def parse_bash_denylist(bio_text):
     return re.findall(r'DENY\s+"([^"]*)"', bio_text)
 
 
+def parse_bash_allowlist(bio_text):
+    allow = []
+    for stmt in re.findall(r'ALLOW\s+([^;]*);', bio_text, re.S):
+        allow += re.findall(r'"([^"]*)"', stmt)
+    return set(allow)
+
+
 def host_of(url):
     m = re.match(r"[a-zA-Z]+://([^/:]+)", url or "")
     return m.group(1) if m else (url or "")
@@ -140,14 +147,17 @@ def main():
             deny(f"NETWORK/out host not allowed: {host}")
         allow(f"WebFetch host: {host}")
 
-    # --- Bash (heuristic) ---
+    # --- Bash (STRUCTURAL: allowlist + token-based denylist, obfuscation-resistant) ---
     if tool == "Bash":
         cmd = tin.get("command", "") or ""
-        for pattern in parse_bash_denylist(bio):
-            if pattern.lower() in cmd.lower():
-                deny(f"Bash forbidden pattern: \"{pattern}\"  (command: {cmd[:80]})")
-        audit({"tool": "Bash", "decision_pre": "no-deny-pattern", "cmd": cmd[:120]})
-        allow(f"Bash (no forbidden pattern): {cmd[:60]}")
+        from core.shell_policy import check as shell_check
+        allowset = parse_bash_allowlist(bio)
+        denylist = parse_bash_denylist(bio)
+        audit({"tool": "Bash", "kind": "SHELL", "cmd": cmd[:120], "policy": "structural"})
+        ok, reason = shell_check(cmd, allow=allowset, deny=denylist)
+        if not ok:
+            deny(f"Bash blocked: {reason}  (command: {cmd[:80]})")
+        allow(f"Bash structural OK: {cmd[:60]}")
 
     # --- any other tool: not our scope -> let the normal permission flow proceed ---
     sys.exit(0)

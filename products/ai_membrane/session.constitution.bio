@@ -19,14 +19,18 @@ CELL AgentSession {
   }
 
   BASH_POLICY {
-    # obviously dangerous patterns — deterministic block
-    DENY "rm -rf";
-    DENY "Remove-Item -Recurse";
+    # STRUCTURAL allowlist: only these programs may run (deny-by-default). The hook resolves
+    # the real program names with a shell lexer, so obfuscation (quoting, ${IFS}, chaining,
+    # substitution) cannot smuggle a non-allowlisted program past it; garbage fails closed.
+    ALLOW "python", "python3", "pip", "pip3", "node", "npm", "npx", "pytest",
+          "git", "cargo", "rustc", "tectonic", "bash", "sh",
+          "ls", "cat", "echo", "cd", "mkdir", "cp", "mv", "touch",
+          "grep", "find", "head", "tail", "wc", "sort", "test", "true", "false";
+    # token-based denied invocations (defense-in-depth, even for allowlisted programs)
     DENY "git push";
     DENY "git reset --hard";
-    DENY ":(){ :";
+    DENY "rm -rf";
     DENY "mkfs";
-    DENY "> /dev/sd";
   }
 
 }

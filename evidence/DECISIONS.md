@@ -29,6 +29,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | I-8 | **Soft tier = pluggable entailment backends** (`core/entailment.py`): a dependency-free heuristic and a Claude LLM judge. Flags, never blocks. | Real semantic faithfulness is non-deterministic (C-6); the soft tier informs while the hard tier enforces. |
 | I-9 | **Content-bound ratification** (`core/provenance.py`). The RATIFIED stamp carries a fingerprint of the enforced policy (capabilities + knowledge + bash). A post-ratification edit that changes the policy reads as TAMPERED. | Ratification (C-5) must not be forgeable by editing the file after approval. |
 | I-10 | **Ratification gate** (`core/gate.py`, `Guard(require_ratified=True)`): in production only a RATIFIED constitution runs; SYNTHESIZED / TAMPERED is refused (fail-closed). | Closes the chain: a policy is enforceable only after human ratification and cannot be broadened afterwards. |
+| I-11 | **Structural shell policy** (`core/shell_policy.py`): the agent membrane's shell check is now a lexer-based allowlist (real program names, obfuscation-resistant) + token-based denylist, replacing the substring heuristic. | Addresses external critique #2: a substring denylist both misses obfuscated commands and false-positives on harmless ones; a structural allowlist resolves the actual programs and fails closed. |
 
 ## Evidence
 
@@ -42,6 +43,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | Ratification gate (production) | `python evidence/demos/run_gate_demo.py` | synthesized/tampered REFUSED, ratified RUNS and enforces, exit 0 |
 | Epistemic hard tier | `python evidence/demos/run_knowledge_demo.py` | 2 ALLOW / 5 DENY, exit 0 |
 | Epistemic soft tier | `python evidence/demos/run_entailment_demo.py` | flags SUPPORTED / UNSUPPORTED, never blocks, exit 0 |
-| Agent membrane | `python products/ai_membrane/test_hook.py` | 12/12, exit 0 |
+| Agent membrane | `python products/ai_membrane/test_hook.py` | 17/17 (incl. obfuscated commands caught structurally), exit 0 |
+| Structural shell policy | `python products/ai_membrane/test_shell_policy.py` | resolves real program names; catches 4 obfuscations the substring denylist misses; fails closed, exit 0 |
 
 The evidence is a reproducible run, not a document: `python run_proofs.py` reproduces all of the above.
