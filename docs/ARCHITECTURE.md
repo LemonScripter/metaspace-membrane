@@ -152,7 +152,7 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 
 | Artifact | What it proves | Command |
 |---|---|---|
-| `products/app_membrane/run_wasm_demo.py` | WebAssembly hard membrane | 2 ALLOW / 3 DENY + physical check |
+| `products/app_membrane/run_wasm_demo.py` | WebAssembly hard membrane (all capability kinds) | 4 ALLOW / 5 DENY across FS/NET/ENV/SUBPROCESS, scope-enforced + physical check |
 | `products/app_membrane/bypass_proof.py` | Unbypassability | `unknown import` link error |
 | `products/app_membrane/wasi/run_wasi_demo.py` | Real program under WASI capabilities | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused) |
 | `evidence/demos/run_synth_demo.py` | Code → constitution → enforcement | app's own effects bound it; undeclared subprocess denied |

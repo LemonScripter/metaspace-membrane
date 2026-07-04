@@ -33,12 +33,13 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | I-12 | **Dry-run learning mode** (`core/dryrun.py`): before ratification, run the program once with effects recorded (observe, never block) and merge the concrete observed effects into the synthesized constitution. | Addresses external critique #3: static synthesis under-declares dynamic code, so a ratified static-only constitution false-positive-blocks legitimate behaviour and pushes developers to wildcards. The dry-run makes the ratified constitution match reality. |
 | I-13 | **Threat-model matrix + strict terminology.** A reproducible matrix runs each layer's real check per attack vector. Terminology is fixed: *containment* = hard/structural block; *qualification* = the soft tier's non-blocking flag. | Addresses external critique #1: the soft/hard boundary must be explicit. The matrix shows honestly that a schema-valid but fabricated statement is NOT contained by the hard layers — only qualified by the soft tier. |
 | I-14 | **Ratification review / cognitive brake** (`core/ratification_review.py`): dry-run-learned capabilities are *provisional* and must each carry a `JUSTIFY` reason; ratification is refused (fail-closed) otherwise, and `--yes` cannot bypass it. | Addresses the second review: the dry-run's convenience opens a risk of smuggling a capability past a fatigued approver. The brake forces a per-item, read-gated justification. Honest limit: it enforces a justification's *presence*, not its *truth*. |
+| I-15 | **Complete capability mediation at the WebAssembly gate** (`products/app_membrane`): one guard-mediated host import per capability KIND — FILESYSTEM write/read, NETWORK, ENV, SUBPROCESS — each scope-enforced (in-scope ALLOW, out-of-scope DENY); an ungranted kind is unreachable by construction. | Delivers the "structural hardness" the reviews asked for: every declarable effect, not just filesystem, is hard-mediated at the unbypassable chokepoint. |
 
 ## Evidence
 
 | Proves | Command | Result |
 |---|---|---|
-| WebAssembly hard membrane | `python products/app_membrane/run_wasm_demo.py` | 2 ALLOW / 3 DENY + physical check, exit 0 |
+| WebAssembly hard membrane (all capability kinds) | `python products/app_membrane/run_wasm_demo.py` | 4 ALLOW / 5 DENY across FS write+read / NET / ENV / SUBPROCESS, scope-enforced + physical check, exit 0 |
 | Unbypassability | `python products/app_membrane/bypass_proof.py` | `unknown import` link error, exit 0 |
 | Real program under WASI | `python products/app_membrane/wasi/run_wasi_demo.py` | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused), exit 0 |
 | Code -> constitution -> enforcement | `python evidence/demos/run_synth_demo.py` | synthesized policy bounds the app; an undeclared effect (subprocess) is denied by default, exit 0 |

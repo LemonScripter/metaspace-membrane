@@ -105,6 +105,16 @@ class Guard:
                 return True
         return False
 
+    def _name_ok(self, target: str, scopes) -> bool:
+        # glob match on a bare name (env var, command, device) — not a path
+        if not scopes:
+            return True
+        for s in scopes:
+            s = s.strip()
+            if s in ("*", "**") or fnmatch.fnmatch(str(target), s):
+                return True
+        return False
+
     # --- the decision core ---
     def check(self, kind: str, mode: str, target: str = None) -> bool:
         scopes = self.allowed.get((kind, mode))
@@ -114,6 +124,9 @@ class Guard:
             allow, reason = False, f"{kind}/{mode} '{target}' outside the granted scope ({scopes})"
         elif kind == "NETWORK" and target is not None and not self._net_ok(target, scopes):
             allow, reason = False, f"{kind}/{mode} '{target}' host not in the allowlist ({scopes})"
+        elif kind in ("ENV", "SUBPROCESS", "HARDWARE", "IMPORT_PATH") and target is not None \
+                and not self._name_ok(target, scopes):
+            allow, reason = False, f"{kind}/{mode} '{target}' outside the granted scope ({scopes})"
         else:
             allow, reason = True, "allowed by the constitution"
         self._log(kind, mode, target, allow, reason)

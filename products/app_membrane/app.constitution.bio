@@ -1,9 +1,13 @@
 # SYNTHESIZED
 # MetaSpace.Bio Engine Project — WebAssembly demo app constitution (Product A)
-# The guest (untrusted app) only receives the gates granted here. Everything else is
-# deterministically denied (deny-by-default) — and in WebAssembly there is nothing to bypass.
+# The guest receives one mediated gate per GRANTED capability kind; each is scope-enforced.
+# SUBPROCESS is deliberately NOT granted -> deny-by-default. In WebAssembly there is nothing
+# to bypass: a kind with no host import is unreachable, a granted kind is bounded to its scope.
 
 CAPABILITIES {
-  FILESYSTEM write "out/**"          # scope: may only write under the sandbox out/
-  NETWORK    out   "api.allowed.com" # host allowlist: outbound traffic may only go here
+  FILESYSTEM write "out/**"          # may write only under the sandbox out/
+  FILESYSTEM read  "config/**"       # may read only under config/
+  NETWORK    out   "api.allowed.com" # outbound only to this host
+  ENV        read  "APP_*"           # may read only APP_-prefixed env vars
+  # SUBPROCESS: not granted -> every exec attempt is denied
 }

@@ -26,10 +26,9 @@ from membrane import WasmMembrane  # noqa: E402
 OUT_DIR = os.path.join(HERE, "out")
 BIO = os.path.join(HERE, "app.constitution.bio")
 
-# the forbidden paths the guest targets (for the physical non-existence check)
+# the forbidden write the guest targets (for the physical non-existence check)
 FORBIDDEN_PATHS = [
     "C:/Windows/System32/evil.txt",
-    os.path.normpath(os.path.join(HERE, "..", "..", "another-app", "steal.txt")),
 ]
 
 
@@ -85,13 +84,15 @@ def main():
         else:
             print("   [OK]  forbidden write physically prevented:", p)
 
-    # expected decision pattern: 1 FS ALLOW, 2 FS DENY, 1 NET ALLOW, 1 NET DENY
-    expected = 2  # ALLOW
-    if allow != expected:
-        print("   [FAIL] expected ALLOW=%d, got=%d" % (expected, allow))
+    # every capability KIND is mediated: FS write/read, NET, ENV granted (in-scope ALLOW,
+    # out-of-scope DENY); SUBPROCESS ungranted -> DENY. Expected: 4 ALLOW, 5 DENY.
+    kinds = sorted({k for (k, m, t, d) in events})
+    print("   [..]  capability kinds mediated at the gate:", ", ".join(kinds))
+    if allow != 4 or deny != 5:
+        print("   [FAIL] expected ALLOW=4 / DENY=5, got ALLOW=%d / DENY=%d" % (allow, deny))
         ok = False
     else:
-        print("   [OK]  decision pattern correct (ALLOW=2: 1 FS + 1 NET)")
+        print("   [OK]  decision pattern correct (ALLOW=4, DENY=5 across FS/NET/ENV/SUBPROCESS)")
 
     print("=" * 68)
     if ok:

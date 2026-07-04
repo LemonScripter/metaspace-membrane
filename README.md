@@ -60,7 +60,7 @@ python run_proofs.py        # runs all four proofs; exit 0 if every one passes
 Or run them individually:
 
 ```bash
-python products/app_membrane/run_wasm_demo.py         # 2 ALLOW / 3 DENY + physical check
+python products/app_membrane/run_wasm_demo.py         # every capability kind mediated (FS/NET/ENV/SUBPROCESS): 4 ALLOW / 5 DENY
 python products/app_membrane/bypass_proof.py          # ungranted gate -> unknown import (blocked)
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
