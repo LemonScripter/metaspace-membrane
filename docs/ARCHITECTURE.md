@@ -113,6 +113,11 @@ The epistemic membrane alone is only **advisory** — a malicious app could simp
   numbers) and a **Claude LLM judge** (`claude` backend, the production path). `soft_entailment()`
   **flags** the verdict and never **blocks** — the hard tier enforces, this tier informs.
 
+**Strict terminology.** The hard tier performs **containment** (a structural block); the soft tier
+performs **qualification** (a non-blocking flag). The reproducible threat-model matrix
+(`evidence/demos/run_threat_matrix_demo.py`) shows this honestly: a schema-valid but fabricated
+statement is *not* contained by the hard layers — it is only qualified by the soft tier.
+
 ---
 
 ## 5. The two products (one engine, two chokepoints)
@@ -155,7 +160,10 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 | `evidence/demos/run_gate_demo.py` | Ratification gate (production) | only RATIFIED runs; synthesized/tampered refused, fail-closed |
 | `evidence/demos/run_knowledge_demo.py` | Epistemic hard tier | 2 ALLOW / 5 DENY |
 | `evidence/demos/run_entailment_demo.py` | Epistemic soft tier | flags SUPPORTED / UNSUPPORTED, never blocks |
-| `products/ai_membrane/test_hook.py` | Agent membrane | 12/12 |
+| `products/ai_membrane/test_hook.py` | Agent membrane | 17/17 (obfuscated commands caught structurally) |
+| `products/ai_membrane/test_shell_policy.py` | Structural shell allowlist | catches obfuscation the substring denylist misses |
+| `evidence/demos/run_dryrun_demo.py` | Dry-run learning mode | static-only false-positives; dry-run-augmented allows |
+| `evidence/demos/run_threat_matrix_demo.py` | Honest layer coverage | hard layers PASS a fabricated fact; soft only flags |
 
 ---
 

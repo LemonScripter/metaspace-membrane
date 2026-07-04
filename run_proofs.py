@@ -28,6 +28,7 @@ PROOFS = [
     ("Epistemic soft tier (entailment flag)",  "evidence/demos/run_entailment_demo.py"),
     ("Agent membrane",                         "products/ai_membrane/test_hook.py"),
     ("Structural shell policy (allowlist)",    "products/ai_membrane/test_shell_policy.py"),
+    ("Threat-model matrix (honest coverage)",  "evidence/demos/run_threat_matrix_demo.py"),
 ]
 
 

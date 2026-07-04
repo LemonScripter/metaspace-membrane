@@ -178,9 +178,15 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
 
 - Product A's hard guarantee requires the WebAssembly substrate; a language-level guard is
   bypassable and is not shipped as a product.
-- The code→constitution synthesis is a static heuristic; the runtime membrane is the guarantee.
-- The agent membrane affects tool effects, not the model's prose; its bash check is heuristic.
-- The epistemic soft tier (NLI faithfulness) is not deterministic and does not block.
+- The code→constitution synthesis is a static heuristic; a **dry-run learning mode**
+  (`core/dryrun.py`) observes concrete runtime effects and augments the constitution *before*
+  ratification, so it does not false-positive-block legitimate dynamic behaviour.
+- The agent membrane affects tool effects, not the model's prose; its shell check is a
+  **structural allowlist** (`core/shell_policy.py`) — obfuscation-resistant and fail-closed.
+- The epistemic soft tier is not deterministic and does not block: the hard tier performs
+  *containment*, the soft tier only *qualification*. The reproducible threat-model matrix
+  (`evidence/demos/run_threat_matrix_demo.py`) shows exactly what each layer catches — including
+  where a schema-valid but fabricated statement passes the hard layers and is only flagged.
 
 ---
 
