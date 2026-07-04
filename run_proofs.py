@@ -23,6 +23,7 @@ PROOFS = [
     ("Synthesis closed loop (code->bio->enforce)", "evidence/demos/run_synth_demo.py"),
     ("Ratification (content-bound provenance)", "evidence/demos/run_ratify_demo.py"),
     ("Ratification gate (only RATIFIED runs)",  "evidence/demos/run_gate_demo.py"),
+    ("Dry-run learning mode (false-positive fix)", "evidence/demos/run_dryrun_demo.py"),
     ("Knowledge membrane (hard tier)",         "evidence/demos/run_knowledge_demo.py"),
     ("Epistemic soft tier (entailment flag)",  "evidence/demos/run_entailment_demo.py"),
     ("Agent membrane",                         "products/ai_membrane/test_hook.py"),

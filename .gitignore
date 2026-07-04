@@ -11,6 +11,7 @@ guest_app.wat
 out/
 _diag/
 sandbox/
+dryrun_sandbox/
 guest_stdout.txt
 products/app_membrane/wasi/input/
 products/app_membrane/wasi/output/
