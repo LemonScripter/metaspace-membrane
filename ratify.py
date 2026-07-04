@@ -17,6 +17,7 @@ import argparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.provenance import verify, ratify, badge, policy_fingerprint  # noqa: E402
+from core.ratification_review import review, assert_ratifiable, UnjustifiedProvisional  # noqa: E402
 
 
 def main():
@@ -37,6 +38,22 @@ def main():
     print(text)
     print("-" * 60)
     print("current status:", badge(status), " policy:", policy_fingerprint(text))
+
+    # cognitive brake: dry-run-learned (provisional) capabilities must each carry a justification
+    rv = review(text)
+    if rv["provisional"]:
+        print("provisional (dry-run-learned) capabilities:")
+        for c in rv["provisional"]:
+            if c["justified"]:
+                print(f"  [OK]      {c['kind']}/{c['mode']} {c['scope']!r} -- {c['justification']}")
+            else:
+                print(f"  [MISSING] {c['kind']}/{c['mode']} {c['scope']!r}  (needs a JUSTIFY reason)")
+    try:
+        assert_ratifiable(text)
+    except UnjustifiedProvisional as e:
+        print("\nRATIFICATION REFUSED:", e)
+        print('Add a  JUSTIFY "<scope>" "<reason>";  line for each, then re-run.')
+        return 1
 
     if status == "RATIFIED":
         print("Already ratified and unchanged. Nothing to do.")

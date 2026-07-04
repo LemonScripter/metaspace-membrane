@@ -157,6 +157,11 @@ In production, gate the membrane on ratification — `Guard(..., require_ratifie
 `core.gate`) runs **only** a RATIFIED constitution; a SYNTHESIZED or TAMPERED one is refused,
 fail-closed. A policy is enforceable only after human ratification.
 
+Capabilities the dry-run learned are marked **provisional**: ratification is refused until each
+carries a written `JUSTIFY` reason — a per-item, read-gated justification that defeats
+rubber-stamping (`--yes` cannot bypass it). The code enforces the justification's *presence*,
+not its *truth*, so the human's judgement on the reason still matters.
+
 ---
 
 ## Layout
