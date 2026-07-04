@@ -69,7 +69,7 @@ a boundary declared in a single, deliberately Turing-incomplete \code{.bio} cons
 effect outside the boundary is deterministically refused. Containment reduces to \emph{set
 membership}, which is decidable, so the runtime decision is deterministic and reproducible. We
 describe three composable membranes (capability, value-invariant, epistemic), a provenance chain
-(synthesis $\to$ human ratification $\to$ production gate), and an evidence ledger of nine
+(synthesis $\to$ human ratification $\to$ production gate), and an evidence ledger of twelve
 reproducible proofs run by a single command. We are explicit about what is \emph{hard}
 (unbypassable under the WebAssembly capability model) and what is \emph{soft} (semantic
 faithfulness, non-deterministic and non-enforcing).
@@ -118,8 +118,8 @@ ratification, and cannot be broadened afterwards without detection. \measured
 \end{itemize}
 
 \sect{5.\quad Evidence --- reproducible ledger (\code{python run\_proofs.py})}
-Every row below is a real run; all nine reproduce together with one command,
-result \textbf{9/9} (the exact command is in the closing section).
+Every row below is a real run; all twelve reproduce together with one command,
+result \textbf{12/12} (the exact command is in the closing section).
 
 \renewcommand{\arraystretch}{1.15}
 \noindent\begin{tabularx}{\linewidth}{@{}R p{1.7cm} >{\raggedright\arraybackslash}p{6.0cm}@{}}
@@ -145,7 +145,13 @@ Epistemic hard tier (referential integrity, schema/domain, provenance-locked act
 Epistemic soft tier flags but never blocks & \measured\ \mbox{+} \arch &
 a faithful claim is flagged SUPPORTED, an invented figure UNSUPPORTED; the verdict never enforces \\
 Agent membrane mediates the coding agent's own tool calls & \measured &
-PreToolUse hook, 12/12 cases: project-only writes, network host allowlist, dangerous-command block, fail-closed on unreadable input \\
+PreToolUse hook, 17/17 cases: project-only writes, network host allowlist, structural shell block, fail-closed on unreadable input \\
+Structural shell policy (allowlist, not substring) & \measured &
+a lexer resolves real program names; catches obfuscations the substring denylist misses (quoting, \code{\$\{IFS\}}, chaining) and fails closed on garbage \\
+Dry-run ``learning mode'' closes the false-positive gap & \measured &
+a static-only constitution DENIES a program's real runtime write (false positive); the dry-run-augmented one ALLOWS it \\
+Threat-model matrix (honest layer coverage) & \measured &
+each layer's real check per attack vector; a schema-valid but fabricated statement PASSES the hard layers and is only FLAGGED by the soft tier \\
 \bottomrule
 \end{tabularx}
 
@@ -154,16 +160,23 @@ PreToolUse hook, 12/12 cases: project-only writes, network host allowlist, dange
 \item The \emph{hard} guarantee holds under the WebAssembly capability model. A language-level
 guard is bypassable (\code{ctypes}, direct syscalls) and is therefore \emph{not} shipped as a product.
 \item Constitution synthesis is a static, name-based heuristic; it can under-declare under heavy
-dynamism. The runtime membrane --- not the synthesis --- is the guarantee.
+dynamism. A \textbf{dry-run learning mode} observes concrete runtime effects and augments the
+constitution \emph{before} ratification, so an incomplete policy does not false-positive-block
+legitimate behaviour. The runtime membrane --- not the synthesis --- remains the guarantee.
 \item The epistemic \emph{soft} tier (semantic faithfulness) is non-deterministic and does not
-enforce; it informs. Its backends are a dependency-free heuristic and an optional LLM judge.
-\item The agent membrane mediates tool \emph{effects}, not the model's prose; its shell-command
-analysis is heuristic.
+enforce; it \emph{qualifies} (flags), never \emph{contains} (blocks). A reproducible threat-model
+matrix shows honestly that a schema-valid but fabricated statement passes the hard layers and is
+only flagged. Its backends are a dependency-free heuristic and an optional LLM judge.
+\item The agent membrane mediates tool \emph{effects}, not the model's prose; its shell check is a
+\textbf{structural allowlist} (a shell lexer resolving real program names) --- obfuscation-resistant
+and fail-closed.
 \item \textbf{TCB:} the host runtime (\code{wasmtime}) and the operating system are assumed intact.
 WASI filesystem granularity is at the directory/permission level.
 \item This artifact does \emph{not} use SMT/Z3 proof or hardware synthesis; those belong to the
 broader MetaSpace.Bio programme and are out of scope here. No figure above is a benchmark or a
 marketing number: every \measured\ item is a reproducible run.
+\item The structural shell policy, the dry-run learning mode and the threat-model matrix were
+added in response to an external technical review; each ships with its own reproducible proof.
 \end{itemize}
 
 \sect{Reproducibility \& availability}
