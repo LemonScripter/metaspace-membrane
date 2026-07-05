@@ -44,9 +44,21 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 | Contains | any application ⊂ its `.bio` | the coding assistant ⊂ its limits |
 | Chokepoint | WebAssembly capability import | Claude Code PreToolUse hook |
 | Guarantee | **unbypassable** (hard, WebAssembly only) | hard on the agent (sits outside it) |
-| Status | WebAssembly + WASI substrate (real programs, demonstrated) | **shippable today** |
+| Status | WebAssembly + WASI substrate (real programs, demonstrated) | installable today (prototype) |
 
 Both are built on the same `core/` decision engine (`guard.py`) and the same `.bio` file.
+
+---
+
+## Status & maturity
+
+This is a **research prototype / reference implementation** (TRL ~3–4). The mechanisms are real,
+falsifiable, and enforced by real substrates — run `python evidence/run_falsification.py` to make
+the repo try (and fail) to prove itself hollow, and `python evidence/run_fuzz.py` for 5000
+adversarial cases. They are demonstrated on **real programs** and fuzzed inputs, but at lab scale,
+by a single author, **without a third-party security audit or production users**. "Patent pending"
+refers to the underlying method; the two "products" are working **proofs-of-concept**, not shipped
+software. See [`SECURITY.md`](SECURITY.md) for the threat model and how to try to break it.
 
 ---
 
