@@ -118,16 +118,16 @@ ratification, and cannot be broadened afterwards without detection. \measured
 \end{itemize}
 
 \sect{5.\quad Evidence --- reproducible ledger (\code{python run\_proofs.py})}
-Every row below is a real run; all twelve reproduce together with one command,
-result \textbf{12/12} (the exact command is in the closing section).
+Every row below is a real run; all thirteen reproduce together with one command,
+result \textbf{13/13} (the exact command is in the closing section).
 
 \renewcommand{\arraystretch}{1.15}
 \noindent\begin{tabularx}{\linewidth}{@{}R p{1.7cm} >{\raggedright\arraybackslash}p{6.0cm}@{}}
 \toprule
 \footnotesize\textbf{Claim} & \footnotesize\textbf{Status} & \footnotesize\textbf{Evidence (observed output)} \\
 \midrule
-Capability membrane enforces deny-by-default (custom host imports) & \measured &
-\code{run\_wasm\_demo}: 2 ALLOW / 3 DENY; the forbidden writes are physically absent afterwards \\
+Capability membrane mediates every capability kind (custom host imports) & \measured &
+\code{run\_wasm\_demo}: 4 ALLOW / 5 DENY across FS write+read, NETWORK, ENV, SUBPROCESS (each scope-enforced); the forbidden write is physically absent \\
 Unbypassability under WebAssembly & \measured\ \mbox{+} \arch &
 an ungranted gate (WASI \code{path\_open}) fails to link: \emph{``unknown import \ldots\ has not been defined''} \\
 A real compiled program is contained by WASI capabilities & \measured &
@@ -140,10 +140,12 @@ Ratification is content-bound & \measured &
 \textsc{synthesized} $\to$ \textsc{ratified} $\to$ \textsc{tampered} when the policy is widened after ratifying \\
 Production gate admits only \textsc{ratified} & \measured &
 \textsc{synthesized} and \textsc{tampered} are REFUSED; \textsc{ratified} RUNS and then enforces \\
+Ratification cognitive brake (provisional capabilities) & \measured &
+a dry-run-learned capability cannot be ratified without a written justification; a smuggled, unjustified one is refused (\code{--yes} cannot bypass it) \\
 Epistemic hard tier (referential integrity, schema/domain, provenance-locked actuation, citation) & \measured &
 \code{run\_knowledge\_demo}: 2 ALLOW / 5 DENY (invented entity, out-of-domain enum, dangling reference, missing citation, ungrounded actuation) \\
-Epistemic soft tier flags but never blocks & \measured\ \mbox{+} \arch &
-a faithful claim is flagged SUPPORTED, an invented figure UNSUPPORTED; the verdict never enforces \\
+Epistemic soft tier is an \emph{advisory flag}, not a membrane & \measured\ \mbox{+} \arch &
+a faithful claim is flagged SUPPORTED, an invented figure UNSUPPORTED; it qualifies, never contains \\
 Agent membrane mediates the coding agent's own tool calls & \measured &
 PreToolUse hook, 17/17 cases: project-only writes, network host allowlist, structural shell block, fail-closed on unreadable input \\
 Structural shell policy (allowlist, not substring) & \measured &
@@ -164,9 +166,10 @@ dynamism. A \textbf{dry-run learning mode} observes concrete runtime effects and
 constitution \emph{before} ratification, so an incomplete policy does not false-positive-block
 legitimate behaviour. The runtime membrane --- not the synthesis --- remains the guarantee.
 \item The epistemic \emph{soft} tier (semantic faithfulness) is non-deterministic and does not
-enforce; it \emph{qualifies} (flags), never \emph{contains} (blocks). A reproducible threat-model
-matrix shows honestly that a schema-valid but fabricated statement passes the hard layers and is
-only flagged. Its backends are a dependency-free heuristic and an optional LLM judge.
+enforce; it is an \textbf{advisory flag}, not a membrane --- it \emph{qualifies} (flags), never
+\emph{contains} (blocks). A reproducible threat-model matrix shows honestly that a schema-valid but
+fabricated statement passes the hard layers and is only flagged. Its backends are a dependency-free
+heuristic and an optional LLM judge.
 \item The agent membrane mediates tool \emph{effects}, not the model's prose; its shell check is a
 \textbf{structural allowlist} (a shell lexer resolving real program names) --- obfuscation-resistant
 and fail-closed.
@@ -175,8 +178,9 @@ WASI filesystem granularity is at the directory/permission level.
 \item This artifact does \emph{not} use SMT/Z3 proof or hardware synthesis; those belong to the
 broader MetaSpace.Bio programme and are out of scope here. No figure above is a benchmark or a
 marketing number: every \measured\ item is a reproducible run.
-\item The structural shell policy, the dry-run learning mode and the threat-model matrix were
-added in response to an external technical review; each ships with its own reproducible proof.
+\item The structural shell policy, the dry-run learning mode, the threat-model matrix, the
+ratification cognitive brake and the full per-kind capability mediation were added in response to
+two rounds of external technical review; each ships with its own reproducible proof.
 \end{itemize}
 
 \sect{Reproducibility \& availability}
