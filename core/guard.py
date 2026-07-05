@@ -70,7 +70,12 @@ class Guard:
                 sys.path.insert(0, _root)
             from core.gate import gate as _gate
             self.provenance = _gate(bio_text, require_ratified=True)   # raises if not RATIFIED
-        self.audit_path = audit_path or os.path.join(self.base_dir, "audit.jsonl")
+        # audit_path=False -> in-memory only (no file). Used when a caller (e.g. the agent hook)
+        # is the single audit authority and the guard must not double-log to the same file.
+        if audit_path is False:
+            self.audit_path = None
+        else:
+            self.audit_path = audit_path or os.path.join(self.base_dir, "audit.jsonl")
         self.allowed = {}          # (kind, mode) -> [scope globs]
         for kind, mode, scopes in parse_capabilities(bio_text):
             self.allowed.setdefault((kind, mode), []).extend(scopes)
@@ -142,9 +147,20 @@ class Guard:
             "reason": reason, "provenance": self.provenance,
         }
         self.decisions.append(rec)
+        if not self.audit_path:          # in-memory only (audit_path=False)
+            return
         _open = self._orig.get("open", builtins.open)
-        with _open(self.audit_path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        # Audit is observability, not enforcement: create the parent dir if needed, and never
+        # let a logging I/O error crash the check. The decision (the raise in check()) happens
+        # AFTER this call, so a swallowed logging error can never turn a DENY into a pass.
+        try:
+            d = os.path.dirname(self.audit_path)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            with _open(self.audit_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
     # --- interception (language-level demo layer; bypassable, see module docstring) ---
     def activate(self):

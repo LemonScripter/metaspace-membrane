@@ -44,7 +44,7 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 | Contains | any application ⊂ its `.bio` | the coding assistant ⊂ its limits |
 | Chokepoint | WebAssembly capability import | Claude Code PreToolUse hook |
 | Guarantee | **unbypassable** (hard, WebAssembly only) | hard on the agent (sits outside it) |
-| Status | WebAssembly + WASI substrate (real programs, demonstrated) | installable today (prototype) |
+| Status | WebAssembly + WASI substrate (real programs, demonstrated) | **Warden MVP** — install → enforce → report loop, proven end-to-end |
 
 Both are built on the same `core/` decision engine (`guard.py`) and the same `.bio` file.
 
@@ -73,7 +73,7 @@ metaspace report path/to/audit.jsonl      # human-readable session safety report
 ```
 
 One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
-by construction, and **verified on Linux**: `run_proofs.py` passes **17/17** on Debian
+by construction, and **verified on Linux**: `run_proofs.py` passes **19/19** on Debian
 (kernel 6.1, Python 3.11) as well as on Windows — a real run that also surfaced and fixed a
 path-portability bug in the test suite. macOS is not yet verified (no host available) — see
 [`SECURITY.md`](SECURITY.md).
@@ -99,6 +99,7 @@ python evidence/demos/run_gate_demo.py                # production gate: only RA
 python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (hallucination blocked)
 python evidence/demos/run_entailment_demo.py          # soft tier flags faithfulness (never blocks)
 python products/ai_membrane/test_hook.py              # 17/17
+python evidence/run_product_e2e.py                    # Warden loop: real hook -> audit -> report (M1)
 python evidence/run_falsification.py                  # self-falsification: proofs are real, not slop
 ```
 
@@ -110,7 +111,23 @@ No hosted CI required — the proof is a command anyone can run.
 
 ---
 
-## Install the agent membrane (Product B)
+## MetaSpace Warden — the agent membrane (Product B)
+
+**Warden** is the shipping product: a deny-by-default membrane for a Claude Code session. You
+install it, it enforces a hardened default constitution from *outside* the agent, and it leaves
+a session safety report. The whole loop is a reproducible proof
+(`python evidence/run_product_e2e.py`), driving the *real* hook over a realistic session:
+
+```
+install the membrane  ->  the agent acts (writes, shell, fetches)
+                      ->  the hook enforces the shipped constitution (deny-by-default)
+                      ->  it logs a project-local audit (.metaspace/session_audit.jsonl)
+                      ->  `metaspace report` summarizes what was blocked, by capability
+```
+
+In the proof, of a realistic 11-step session the membrane allows 6 legitimate actions and blocks
+5 (a write outside the project, `git push`, `rm -rf /`, a `curl … | bash`, and a beacon to an
+unlisted host) — then `metaspace report` shows the block breakdown (FILESYSTEM / SHELL / NETWORK).
 
 **As a Claude Code plugin (one command):**
 
@@ -134,7 +151,13 @@ Restart the Claude Code session, then run `/hooks` to confirm it is active. Remo
 block reverts either method.
 
 The session constitution is deny-by-default: writes are limited to the project directory,
-outbound network to an allowlist, and dangerous shell patterns are blocked.
+outbound network to an allowlist, and dangerous shell patterns are blocked. The membrane logs
+every decision to `.metaspace/session_audit.jsonl` in the project; after a session, see what it
+blocked with:
+
+```bash
+metaspace report          # reads ./.metaspace/session_audit.jsonl by default
+```
 
 ---
 

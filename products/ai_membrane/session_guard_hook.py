@@ -47,7 +47,7 @@ PROJECT_ROOT = (os.environ.get("METASPACE_PROJECT_ROOT")
 BIO_PATH = os.environ.get("METASPACE_SESSION_BIO",
                           os.path.join(HERE, "session.constitution.bio"))
 AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
-                       os.path.join(HERE, "session_audit.jsonl"))
+                       os.path.join(PROJECT_ROOT, ".metaspace", "session_audit.jsonl"))
 
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 READ_TOOLS = {"Read"}
@@ -57,19 +57,26 @@ NET_TOOLS = {"WebFetch"}
 def audit(rec):
     rec["ts"] = datetime.datetime.now().isoformat(timespec="seconds")
     try:
+        d = os.path.dirname(AUDIT)
+        if d:
+            os.makedirs(d, exist_ok=True)
         with open(AUDIT, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
     except Exception:
         pass
 
 
-def allow(reason):
-    audit({"decision": "ALLOW", "reason": reason})
+def allow(reason, **extra):
+    rec = {"decision": "ALLOW", "reason": reason}
+    rec.update(extra)
+    audit(rec)
     sys.exit(0)
 
 
-def deny(reason):
-    audit({"decision": "DENY", "reason": reason})
+def deny(reason, **extra):
+    rec = {"decision": "DENY", "reason": reason}
+    rec.update(extra)
+    audit(rec)
     sys.stderr.write(f"[MEMBRANE BLOCK] {reason}\n")
     sys.exit(2)
 
@@ -110,7 +117,9 @@ def main():
         with open(BIO_PATH, encoding="utf-8") as fh:
             bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT)
         from core.guard import Guard, ConstitutionViolation
-        guard = Guard(bio, base_dir=PROJECT_ROOT, audit_path=AUDIT, provenance="RATIFIED")
+        # the hook is the single audit authority (it logs with tool + kind + target); the guard
+        # must not double-log to the same file -> audit_path=False (in-memory decisions only).
+        guard = Guard(bio, base_dir=PROJECT_ROOT, audit_path=False, provenance="RATIFIED")
     except Exception as e:
         # cannot load the constitution -> the membrane is non-functional -> FAIL-CLOSED
         audit({"decision": "DENY", "reason": f"constitution load error ({e})", "fail": "closed"})
@@ -121,12 +130,12 @@ def main():
     # --- FILESYSTEM write (hard project boundary) ---
     if tool in WRITE_TOOLS:
         path = tin.get("file_path") or tin.get("notebook_path") or ""
-        audit({"tool": tool, "kind": "FILESYSTEM", "mode": "write", "target": path})
         try:
             guard.check("FILESYSTEM", "write", path)
         except ConstitutionViolation as e:
-            deny(str(e))
-        allow(f"{tool} -> writable scope: {path}")
+            deny(str(e), tool=tool, kind="FILESYSTEM", mode="write", target=path)
+        allow(f"{tool} -> writable scope: {path}",
+              tool=tool, kind="FILESYSTEM", mode="write", target=path)
 
     # --- FILESYSTEM read ---
     if tool in READ_TOOLS:
@@ -134,18 +143,20 @@ def main():
         try:
             guard.check("FILESYSTEM", "read", path)
         except ConstitutionViolation as e:
-            deny(str(e))
-        allow(f"{tool} read: {path}")
+            deny(str(e), tool=tool, kind="FILESYSTEM", mode="read", target=path)
+        allow(f"{tool} read: {path}",
+              tool=tool, kind="FILESYSTEM", mode="read", target=path)
 
     # --- NETWORK out (WebFetch) ---
     if tool in NET_TOOLS:
         host = host_of(tin.get("url", ""))
-        audit({"tool": tool, "kind": "NETWORK", "mode": "out", "target": host})
         try:
             guard.check("NETWORK", "out", host)
         except ConstitutionViolation:
-            deny(f"NETWORK/out host not allowed: {host}")
-        allow(f"WebFetch host: {host}")
+            deny(f"NETWORK/out host not allowed: {host}",
+                 tool=tool, kind="NETWORK", mode="out", target=host)
+        allow(f"WebFetch host: {host}",
+              tool=tool, kind="NETWORK", mode="out", target=host)
 
     # --- Bash (STRUCTURAL: allowlist + token-based denylist, obfuscation-resistant) ---
     if tool == "Bash":
@@ -153,11 +164,12 @@ def main():
         from core.shell_policy import check as shell_check
         allowset = parse_bash_allowlist(bio)
         denylist = parse_bash_denylist(bio)
-        audit({"tool": "Bash", "kind": "SHELL", "cmd": cmd[:120], "policy": "structural"})
         ok, reason = shell_check(cmd, allow=allowset, deny=denylist)
         if not ok:
-            deny(f"Bash blocked: {reason}  (command: {cmd[:80]})")
-        allow(f"Bash structural OK: {cmd[:60]}")
+            deny(f"Bash blocked: {reason}  (command: {cmd[:80]})",
+                 tool="Bash", kind="SHELL", mode="exec", target=cmd[:80])
+        allow(f"Bash structural OK: {cmd[:60]}",
+              tool="Bash", kind="SHELL", mode="exec", target=cmd[:80])
 
     # --- any other tool: not our scope -> let the normal permission flow proceed ---
     sys.exit(0)

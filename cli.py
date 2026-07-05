@@ -6,7 +6,8 @@ MetaSpace CLI — one entry point over the engine (M0 productization).
     metaspace synthesize <path> [--out FILE] [--cell NAME]   code -> draft .bio
     metaspace ratify     <bio>  [--yes] [--out FILE]         review + cognitive brake + stamp
     metaspace gate       <bio>                                exit 0 only if RATIFIED
-    metaspace report     <audit.jsonl>                        human-readable session report
+    metaspace report     [audit.jsonl]                        human-readable session report
+                                                             (default: ./.metaspace/session_audit.jsonl)
     metaspace init       [dir]  [--out FILE]                  synthesize a draft for a project
 
 Cross-platform by construction: only os.path / shlex / stdlib, no OS-specific calls. Tested on
@@ -101,13 +102,18 @@ def cmd_gate(args):
 
 
 def cmd_report(args):
-    if not os.path.exists(args.audit):
-        sys.stderr.write("file not found: %s\n" % args.audit)
+    # default to the project-local session audit the membrane writes (.metaspace/…)
+    audit_path = args.audit or os.environ.get("METASPACE_SESSION_AUDIT") \
+        or os.path.join(os.getcwd(), ".metaspace", "session_audit.jsonl")
+    if not os.path.exists(audit_path):
+        sys.stderr.write("no audit log found: %s\n" % audit_path)
+        sys.stderr.write("run a session under the membrane first, or pass a path:\n")
+        sys.stderr.write("    metaspace report path/to/session_audit.jsonl\n")
         return 2
     allow = deny = 0
     denied_by_kind = {}
     denied_targets = []
-    for line in open(args.audit, encoding="utf-8"):
+    for line in open(audit_path, encoding="utf-8"):
         line = line.strip()
         if not line:
             continue
@@ -129,7 +135,7 @@ def cmd_report(args):
     print("=" * 66)
     print("  MetaSpace session safety report")
     print("=" * 66)
-    print("  audit source :", args.audit)
+    print("  audit source :", audit_path)
     print("  decisions    :", total, " (ALLOW=%d, BLOCKED=%d)" % (allow, deny))
     if deny:
         print("  the agent attempted %d effect(s) OUTSIDE its constitution; all were BLOCKED:" % deny)
@@ -177,7 +183,9 @@ def build_parser():
     g.add_argument("bio"); g.set_defaults(fn=cmd_gate)
 
     rp = sub.add_parser("report", help="human-readable session report from an audit log")
-    rp.add_argument("audit"); rp.set_defaults(fn=cmd_report)
+    rp.add_argument("audit", nargs="?", default=None,
+                    help="audit .jsonl (default: ./.metaspace/session_audit.jsonl)")
+    rp.set_defaults(fn=cmd_report)
 
     i = sub.add_parser("init", help="synthesize a draft constitution for a project")
     i.add_argument("dir", nargs="?", default="."); i.add_argument("--out")

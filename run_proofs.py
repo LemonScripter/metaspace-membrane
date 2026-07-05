@@ -35,6 +35,7 @@ PROOFS = [
     ("Self-falsification (anti-slop audit)",   "evidence/run_falsification.py"),
     ("Property-based fuzz (5000 random cases)", "evidence/run_fuzz.py"),
     ("CLI end-to-end product flow (M0)",       "evidence/run_cli_e2e.py"),
+    ("Product e2e: real membrane -> audit -> report (M1)", "evidence/run_product_e2e.py"),
 ]
 
 
