@@ -21,16 +21,20 @@ BIO = os.path.join(HERE, "session.constitution.bio")
 # a temporary project root that the hook substitutes for {{PROJECT_ROOT}}
 PROJ = tempfile.mkdtemp(prefix="metaspace_proj_").replace("\\", "/")
 OUTSIDE = os.path.dirname(PROJ).replace("\\", "/") + "/outside_evil.txt"
+# an absolute path that is outside the project on the *host* OS. Must be OS-appropriate:
+# "C:/..." is absolute on Windows but a relative name on POSIX (no leading "/"), which
+# would resolve *inside* the project and defeat the test — so pick per platform.
+OUTSIDE_ABS = "C:/Windows/System32/evil.txt" if os.name == "nt" else "/etc/evil.txt"
 
 CASES = [
     ("Write inside the project (allowed)",
      {"tool_name": "Write", "tool_input": {"file_path": PROJ + "/src/x.py"}}, 0),
     ("Write OUTSIDE the project (violates boundary)",
-     {"tool_name": "Write", "tool_input": {"file_path": "C:/Windows/System32/evil.txt"}}, 2),
+     {"tool_name": "Write", "tool_input": {"file_path": OUTSIDE_ABS}}, 2),
     ("Write outside via sibling path (violates boundary)",
      {"tool_name": "Edit", "tool_input": {"file_path": OUTSIDE}}, 2),
     ("Read anywhere (allowed)",
-     {"tool_name": "Read", "tool_input": {"file_path": "C:/any/where/main.py"}}, 0),
+     {"tool_name": "Read", "tool_input": {"file_path": OUTSIDE_ABS}}, 0),
     ("Bash allowlisted (python)",
      {"tool_name": "Bash", "tool_input": {"command": "python build.py"}}, 0),
     ("Bash allowlisted chained (git status; ls)",

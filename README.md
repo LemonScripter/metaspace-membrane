@@ -73,7 +73,10 @@ metaspace report path/to/audit.jsonl      # human-readable session safety report
 ```
 
 One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
-by construction (Linux/macOS CI is a stated pending gap — see [`SECURITY.md`](SECURITY.md)).
+by construction, and **verified on Linux**: `run_proofs.py` passes **17/17** on Debian
+(kernel 6.1, Python 3.11) as well as on Windows — a real run that also surfaced and fixed a
+path-portability bug in the test suite. macOS is not yet verified (no host available) — see
+[`SECURITY.md`](SECURITY.md).
 
 ---
 
