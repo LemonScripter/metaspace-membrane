@@ -188,10 +188,12 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
   ratification, so it does not false-positive-block legitimate dynamic behaviour.
 - The agent membrane affects tool effects, not the model's prose; its shell check is a
   **structural allowlist** (`core/shell_policy.py`) — obfuscation-resistant and fail-closed.
-- The epistemic soft tier is not deterministic and does not block: the hard tier performs
-  *containment*, the soft tier only *qualification*. The reproducible threat-model matrix
-  (`evidence/demos/run_threat_matrix_demo.py`) shows exactly what each layer catches — including
-  where a schema-valid but fabricated statement passes the hard layers and is only flagged.
+- The epistemic tier has two parts, named honestly: a **hard tier** that is a real
+  deterministic *membrane* (it contains/blocks), and a **soft tier** that is *not* a membrane but
+  an **advisory flag** (it qualifies/flags, never blocks). The reproducible threat-model matrix
+  (`evidence/demos/run_threat_matrix_demo.py`, rendered in `docs/ARCHITECTURE.md`) shows exactly
+  what each layer catches — including where a schema-valid but fabricated statement passes the
+  hard layers and is only flagged.
 
 ---
 

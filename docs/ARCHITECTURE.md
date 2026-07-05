@@ -113,10 +113,25 @@ The epistemic membrane alone is only **advisory** — a malicious app could simp
   numbers) and a **Claude LLM judge** (`claude` backend, the production path). `soft_entailment()`
   **flags** the verdict and never **blocks** — the hard tier enforces, this tier informs.
 
-**Strict terminology.** The hard tier performs **containment** (a structural block); the soft tier
-performs **qualification** (a non-blocking flag). The reproducible threat-model matrix
-(`evidence/demos/run_threat_matrix_demo.py`) shows this honestly: a schema-valid but fabricated
-statement is *not* contained by the hard layers — it is only qualified by the soft tier.
+**Strict terminology (claim = proof, no more and no less).** The epistemic **hard tier** is a real
+deterministic **membrane** — it *contains* (blocks). The epistemic **soft tier** is deliberately
+*not* a membrane; it is an **advisory flag** — it *qualifies* (flags), never contains. We use these
+words consistently so the name never claims more than the code proves.
+
+**Threat-model matrix (from `evidence/demos/run_threat_matrix_demo.py`, reproduced honestly):**
+
+| Attack vector | Capability | Epistemic-hard (membrane) | Epistemic-soft (advisory flag) | Shell |
+|---|:---:|:---:|:---:|:---:|
+| Out-of-scope file write | **BLOCK** | — | — | — |
+| Invented entity assertion | — | **BLOCK** | — | — |
+| Ungrounded actuation (LLM refund) | — | **BLOCK** | — | — |
+| **Schema-valid entity + fabricated figure** | — | PASS | *FLAG* | — |
+| Obfuscated dangerous shell command | — | — | — | **BLOCK** |
+| Plausible false prose (no assertion/syscall) | — | — | — | — |
+
+The fourth row is the honest boundary: a schema-valid but fabricated statement is **not contained**
+by any hard layer — the advisory flag only *qualifies* it. Free prose is not read by the membrane
+at all. Nothing here is claimed as caught that is not caught.
 
 ---
 

@@ -191,6 +191,6 @@ class KnowledgeMembrane:
         from core.entailment import check_entailment
         v = check_entailment(claim, sources, backend=backend)
         self._log("ENTAIL", claim[:40], True,
-                  f"SOFT tier [{v.backend}] {v.verdict}: {v.note}", tier="SOFT")
+                  f"ADVISORY FLAG (not enforced) [{v.backend}] {v.verdict}: {v.note}", tier="SOFT")
         return {"verdict": v.verdict, "score": v.score, "backend": v.backend,
                 "hard": False, "note": v.note}
