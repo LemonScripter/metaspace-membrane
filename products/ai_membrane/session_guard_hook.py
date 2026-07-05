@@ -116,7 +116,7 @@ def main():
     try:
         with open(BIO_PATH, encoding="utf-8") as fh:
             bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT)
-        from core.guard import Guard, ConstitutionViolation
+        from core.guard import Guard
         # the hook is the single audit authority (it logs with tool + kind + target); the guard
         # must not double-log to the same file -> audit_path=False (in-memory decisions only).
         guard = Guard(bio, base_dir=PROJECT_ROOT, audit_path=False, provenance="RATIFIED")
@@ -127,52 +127,29 @@ def main():
                          f"-> deny-by-default (fail-closed)\n")
         sys.exit(2)
 
-    # --- FILESYSTEM write (hard project boundary) ---
+    # --- map the Claude Code tool event onto a normalized effect (kind, mode, target) ---
     if tool in WRITE_TOOLS:
-        path = tin.get("file_path") or tin.get("notebook_path") or ""
-        try:
-            guard.check("FILESYSTEM", "write", path)
-        except ConstitutionViolation as e:
-            deny(str(e), tool=tool, kind="FILESYSTEM", mode="write", target=path)
-        allow(f"{tool} -> writable scope: {path}",
-              tool=tool, kind="FILESYSTEM", mode="write", target=path)
+        kind, mode, target = "FILESYSTEM", "write", (tin.get("file_path") or tin.get("notebook_path") or "")
+    elif tool in READ_TOOLS:
+        kind, mode, target = "FILESYSTEM", "read", (tin.get("file_path") or "")
+    elif tool in NET_TOOLS:
+        kind, mode, target = "NETWORK", "out", host_of(tin.get("url", ""))
+    elif tool == "Bash":
+        kind, mode, target = "SHELL", "exec", (tin.get("command", "") or "")
+    else:
+        sys.exit(0)   # any other tool: not our scope -> let the normal permission flow proceed
 
-    # --- FILESYSTEM read ---
-    if tool in READ_TOOLS:
-        path = tin.get("file_path") or ""
-        try:
-            guard.check("FILESYSTEM", "read", path)
-        except ConstitutionViolation as e:
-            deny(str(e), tool=tool, kind="FILESYSTEM", mode="read", target=path)
-        allow(f"{tool} read: {path}",
-              tool=tool, kind="FILESYSTEM", mode="read", target=path)
+    # --- one shared, harness-independent decision (same core the MCP broker uses) ---
+    from core.agent_adapter import decide
+    allowset = parse_bash_allowlist(bio) if kind == "SHELL" else None
+    denylist = parse_bash_denylist(bio) if kind == "SHELL" else None
+    ok, reason = decide(kind, mode, target, guard, allowset, denylist)
 
-    # --- NETWORK out (WebFetch) ---
-    if tool in NET_TOOLS:
-        host = host_of(tin.get("url", ""))
-        try:
-            guard.check("NETWORK", "out", host)
-        except ConstitutionViolation:
-            deny(f"NETWORK/out host not allowed: {host}",
-                 tool=tool, kind="NETWORK", mode="out", target=host)
-        allow(f"WebFetch host: {host}",
-              tool=tool, kind="NETWORK", mode="out", target=host)
-
-    # --- Bash (STRUCTURAL: allowlist + token-based denylist, obfuscation-resistant) ---
-    if tool == "Bash":
-        cmd = tin.get("command", "") or ""
-        from core.shell_policy import check as shell_check
-        allowset = parse_bash_allowlist(bio)
-        denylist = parse_bash_denylist(bio)
-        ok, reason = shell_check(cmd, allow=allowset, deny=denylist)
-        if not ok:
-            deny(f"Bash blocked: {reason}  (command: {cmd[:80]})",
-                 tool="Bash", kind="SHELL", mode="exec", target=cmd[:80])
-        allow(f"Bash structural OK: {cmd[:60]}",
-              tool="Bash", kind="SHELL", mode="exec", target=cmd[:80])
-
-    # --- any other tool: not our scope -> let the normal permission flow proceed ---
-    sys.exit(0)
+    tgt = target[:80] if kind == "SHELL" else target
+    if ok:
+        allow(f"{tool} {kind}/{mode}: {str(target)[:60]}", tool=tool, kind=kind, mode=mode, target=tgt)
+    else:
+        deny(f"{tool} blocked ({kind}/{mode}): {reason}", tool=tool, kind=kind, mode=mode, target=tgt)
 
 
 if __name__ == "__main__":

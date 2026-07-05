@@ -73,7 +73,7 @@ metaspace report path/to/audit.jsonl      # human-readable session safety report
 ```
 
 One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
-by construction, and **verified on Linux**: `run_proofs.py` passes **19/19** on Debian
+by construction, and **verified on Linux**: `run_proofs.py` passes **20/20** on Debian
 (kernel 6.1, Python 3.11) as well as on Windows — a real run that also surfaced and fixed a
 path-portability bug in the test suite. macOS is not yet verified (no host available) — see
 [`SECURITY.md`](SECURITY.md).
@@ -159,6 +159,22 @@ blocked with:
 metaspace report          # reads ./.metaspace/session_audit.jsonl by default
 ```
 
+### Other harnesses: the generic MCP broker
+
+The membrane's decision lives in one harness-independent core (`core/agent_adapter.py`); the
+Claude Code hook is just one thin adapter over it. A second adapter — a generic **MCP
+capability-broker** (`products/mcp_membrane/server.py`, a minimal JSON-RPC stdio server) —
+exposes *mediated effect tools* (`fs_write`, `fs_read`, `net_fetch`) to any MCP-capable agent,
+each gated by the same core, deny-by-default. `python evidence/run_mcp_e2e.py` drives both the
+hook and the broker over their real interfaces and shows they reach identical verdicts.
+
+**Honest condition (the hard-vs-advisory line):** an MCP tool the agent may *voluntarily* call
+is only advisory — back to self-discipline, which does not contain a misaligned agent. The
+broker is *hard* only when the agent is deployed with its ambient authority removed, so the
+broker's tools are its **only** path to the filesystem/network. Under that condition the
+guarantee equals the hook's; the broker cannot constrain effects reached through some other
+unmediated tool.
+
 ---
 
 ## The `.bio` constitution
@@ -225,8 +241,8 @@ not its *truth*, so the human's judgement on the reason still matters.
 ## Layout
 
 ```
-core/          shared decision engine (guard, knowledge, analyzer)
-products/      app_membrane (WebAssembly) · ai_membrane (hook + installer)
+core/          shared decision engine (guard, knowledge, analyzer, agent_adapter)
+products/      app_membrane (WebAssembly) · ai_membrane (hook + installer) · mcp_membrane (broker)
 evidence/      runnable proofs + decisions
 docs/          ARCHITECTURE.md
 ```

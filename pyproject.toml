@@ -21,4 +21,4 @@ Homepage = "https://metaspace.bio"
 
 [tool.setuptools]
 py-modules = ["cli"]
-packages = ["core", "products.app_membrane", "products.ai_membrane"]
+packages = ["core", "products.app_membrane", "products.ai_membrane", "products.mcp_membrane"]
