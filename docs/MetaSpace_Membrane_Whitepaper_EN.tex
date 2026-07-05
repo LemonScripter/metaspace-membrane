@@ -118,8 +118,8 @@ ratification, and cannot be broadened afterwards without detection. \measured
 \end{itemize}
 
 \sect{5.\quad Evidence --- reproducible ledger (\code{python run\_proofs.py})}
-Every row below is a real run; all thirteen reproduce together with one command,
-result \textbf{13/13} (the exact command is in the closing section).
+Every row below is a real run; all seventeen reproduce together with one command,
+result \textbf{17/17} (the exact command is in the closing section).
 
 \renewcommand{\arraystretch}{1.15}
 \noindent\begin{tabularx}{\linewidth}{@{}R p{1.7cm} >{\raggedright\arraybackslash}p{6.0cm}@{}}
@@ -154,6 +154,14 @@ Dry-run ``learning mode'' closes the false-positive gap & \measured &
 a static-only constitution DENIES a program's real runtime write (false positive); the dry-run-augmented one ALLOWS it \\
 Threat-model matrix (honest layer coverage) & \measured &
 each layer's real check per attack vector; a schema-valid but fabricated statement PASSES the hard layers and is only FLAGGED by the soft tier \\
+Real program does real work under containment & \measured &
+a real Rust log analyzer (dir scan, parse, aggregate) computes the correct stats for known input; its out-of-grant read is refused by WASI \\
+Synthesizer runs on real code (dogfood) & \measured &
+run over this repo's own $\sim$36 files, it produces a real, non-trivial constitution matching the code's actual effects \\
+Property-based fuzz (adversarial coverage) & \measured &
+5000 random constitutions $\times$ random effects: deny-by-default never violated; the guard agrees with an independent scope oracle \\
+Self-falsification (anti-slop) & \measured &
+mutating the \code{.bio} flips the decision; sabotaging \code{guard.check} fails a proof; wasmtime itself refuses an ungranted syscall \\
 \bottomrule
 \end{tabularx}
 
