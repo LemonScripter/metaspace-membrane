@@ -15,6 +15,7 @@ dryrun_sandbox/
 guest_stdout.txt
 products/app_membrane/wasi/input/
 products/app_membrane/wasi/output/
+products/app_membrane/real_app_sandbox/
 
 # Rust build output (guest.wasm is committed prebuilt; target/ is not)
 target/

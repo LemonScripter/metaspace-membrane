@@ -1,0 +1,9 @@
+# SYNTHESIZED
+# MetaSpace.Bio Engine Project — constitution for a REAL compiled program under WASI.
+# The log-analysis utility may read its input directory and write its output directory —
+# nothing else. Any other path has no WASI capability and is refused by the runtime.
+
+CAPABILITIES {
+  FILESYSTEM read  "input/**"     # read-only: the logs to analyze
+  FILESYSTEM write "output/**"    # writable: where the report goes
+}

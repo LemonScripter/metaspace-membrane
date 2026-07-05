@@ -20,6 +20,7 @@ PROOFS = [
     ("App membrane - WebAssembly hard proof",  "products/app_membrane/run_wasm_demo.py"),
     ("App membrane - unbypassability proof",   "products/app_membrane/bypass_proof.py"),
     ("App membrane - WASI real-program proof", "products/app_membrane/wasi/run_wasi_demo.py"),
+    ("App membrane - REAL app (real work + containment)", "products/app_membrane/run_real_app_demo.py"),
     ("Synthesis closed loop (code->bio->enforce)", "evidence/demos/run_synth_demo.py"),
     ("Ratification (content-bound provenance)", "evidence/demos/run_ratify_demo.py"),
     ("Ratification gate (only RATIFIED runs)",  "evidence/demos/run_gate_demo.py"),
