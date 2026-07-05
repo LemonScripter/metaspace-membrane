@@ -50,8 +50,14 @@ All three membranes are **the same pattern**: a reference monitor at a **chokepo
 | Membrane | Mediates | Harm class it contains |
 |---|---|---|
 | **Capability** | Effects on the world (FS/NET/ENV/SUBPROCESS/HARDWARE/IMPORT) | Effect hallucination (deletes, exfiltrates) |
-| **Value invariant** | Safety bounds (temperature, current, motion) | Value violation (crosses an invariant) |
+| **Value invariant** | Safety bounds (numeric ranges; e.g. temperature, current, motion) | Value violation (crosses an invariant) |
 | **Epistemic** | Factual assertion and knowledge-based actuation | Fact hallucination (acts on false data) |
+
+> **Honest note on the value-invariant membrane.** In *this* repository, numeric value bounds are
+> enforced as the hard tier's schema/domain **`RANGE`** check (`core/knowledge_membrane.py`, proven
+> in `run_knowledge_demo`) — i.e. it is realized *inside* the epistemic-hard membrane rather than as
+> a separate third enforcer. The IoT examples (temperature/current/motion) are illustrative of the
+> broader MetaSpace.Bio programme and are not separately proven here.
 
 ---
 
@@ -140,23 +146,37 @@ at all. Nothing here is claimed as caught that is not caught.
 > **Product B = Product A where the "app" is the coding agent itself, and the chokepoint is
 > the harness hook instead of the WebAssembly import.** Same `core.guard`, same `.bio`.
 
-### Product A — App membrane  *(hard, WebAssembly only)*
-Any app is contained within its `.bio`: the app can only do what the constitution allows.
-- Only the unbypassable WebAssembly form is shipped as the product — a bypassable
-  language-level variant is not.
-- Two forms are demonstrated: (a) **custom capability imports** — a guest reaches the world
-  only through host-granted gates mediated by `core.guard`; (b) the **WASI capability model** —
-  a real compiled program (Rust → `wasm32-wasip1`) whose filesystem is limited to preopens
-  derived from the `.bio`. The WASI form scales to any language without per-app host functions.
+### Product A — App membrane  *(hard: WebAssembly **or** OS-sandbox)*
+Any app is contained within its `.bio`: the app can only do what the constitution allows. Only
+unbypassable substrates are shipped — a bypassable language-level variant is not.
+- **WebAssembly**, two forms: (a) **custom capability imports** — a guest reaches the world only
+  through host-granted gates mediated by `core.guard`; (b) the **WASI capability model** — a real
+  compiled program (Rust → `wasm32-wasip1`) whose filesystem is limited to preopens derived from
+  the `.bio`. The WASI form scales to any language without per-app host functions.
+- **OS-sandbox (Linux Landlock)** — `products/app_membrane/sandbox_enforcer.py` (pure-Python
+  `ctypes`) applies a Landlock ruleset from the `.bio` before `exec`-ing a **stock native binary**,
+  so the kernel confines its filesystem writes to the declared scope (out-of-scope write → EACCES).
+  Honest MVP scope: write confinement (read/execute unrestricted so any binary runs); Linux only;
+  fail-closed if unavailable. — `run_landlock_demo`.
 
-### Product B — Agent membrane  *(shippable today)*
+### Product B — Agent membrane = **MetaSpace Warden** *(MVP, proven end-to-end)*
 The current AI is contained within its session constitution: the agent can only do what it
 is granted.
-- Mechanism: a `.claude/settings.json` PreToolUse hook → `core.guard.check()` → hardened constitution.
-- One-click: a Claude Code plugin + an installer script.
+- Mechanism: a PreToolUse hook → the harness-independent decision core (`core/agent_adapter.py` →
+  `core.guard`) → hardened constitution. One-click: a Claude Code plugin + an installer script.
+- **Proven product loop:** the real hook enforces the shipped constitution over a realistic
+  session, logs a project-local audit (`.metaspace/`), and `metaspace report` summarizes what was
+  blocked, by capability kind. — `run_product_e2e`.
+- **One core, many harnesses:** a second adapter, a generic **MCP capability-broker**
+  (`products/mcp_membrane/`), reaches identical verdicts via the same core — `run_mcp_e2e`. (Honest
+  condition: an MCP tool the agent may *voluntarily* call is advisory; the broker is hard only when
+  the agent's ambient authority is removed so its tools are the only path to effects.)
+- **CLI (`metaspace`):** `synthesize / ratify / gate / report / init` — one entry point over the
+  engine (`run_cli_e2e`).
 
-**Honest limits (Product B):** affects tool effects only, not prose; the bash check is
-heuristic; a restart is needed to activate; on error it fails closed.
+**Honest limits (Product B):** affects tool effects only, not prose; the shell check is a
+**structural allowlist** (obfuscation-resistant, fail-closed); a restart is needed to activate;
+on error it fails closed.
 
 ---
 
@@ -179,6 +199,18 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 | `products/ai_membrane/test_shell_policy.py` | Structural shell allowlist | catches obfuscation the substring denylist misses |
 | `evidence/demos/run_dryrun_demo.py` | Dry-run learning mode | static-only false-positives; dry-run-augmented allows |
 | `evidence/demos/run_threat_matrix_demo.py` | Honest layer coverage | hard layers PASS a fabricated fact; soft only flags |
+| `products/app_membrane/run_real_app_demo.py` | Real program does real work under containment | a Rust log analyzer computes correct stats; out-of-grant read refused |
+| `evidence/demos/run_dogfood_demo.py` | Synthesizer on real code (dogfood) | a real, non-trivial constitution from this repo's ~36 files |
+| `evidence/demos/run_ratification_review_demo.py` | Ratification cognitive brake | an unjustified provisional capability cannot be ratified (`--yes` can't bypass) |
+| `evidence/run_fuzz.py` | Property-based fuzz | 5000 random cases: deny-by-default never violated; agrees with an independent oracle |
+| `evidence/run_falsification.py` | Self-falsification (anti-slop) | mutation flips the decision; sabotaging `guard.check` fails a proof; wasmtime refuses an ungranted syscall |
+| `evidence/run_cli_e2e.py` | CLI product flow (M0) | synthesize → gate (refused) → ratify → gate (allowed) → report |
+| `evidence/run_product_e2e.py` | Warden product loop (M1) | real hook enforces a session (6 ALLOW / 5 BLOCK) → project-local audit → `metaspace report` |
+| `evidence/run_mcp_e2e.py` | MCP adapter parity (M2) | hook and MCP broker reach identical verdicts; broker refuses+doesn't-perform a denied write |
+| `evidence/run_landlock_demo.py` | OS-sandbox (M3, Linux/Landlock) | a stock native program confined to its `.bio` write scope; out-of-scope write → EACCES |
+
+All together: **`python run_proofs.py`** — 21 proofs (21/21 on Linux; on non-Linux the Landlock
+proof skips honestly, so 20 pass + 1 skip). The runner is skip-aware for OS-specific proofs.
 
 ---
 
@@ -186,11 +218,13 @@ Every claim is a **reproducible test anyone can run** — no hosted CI required.
 
 ```
 metaspace-membrane/
-├─ core/          guard.py · knowledge_membrane.py · capability_analyzer.py
+├─ core/          guard.py · agent_adapter.py · knowledge_membrane.py · capability_analyzer.py
 ├─ products/
-│   ├─ app_membrane/   WebAssembly substrate (membrane.py, guest, demos)   [hard]
-│   └─ ai_membrane/    hook + install.py + session.constitution.bio        [shippable]
-├─ evidence/      demos/ (runnable proofs) · DECISIONS.md
-├─ docs/          ARCHITECTURE.md (this document)
+│   ├─ app_membrane/   WebAssembly substrate + sandbox_enforcer.py (Landlock)   [hard]
+│   ├─ ai_membrane/    hook + install.py + session.constitution.bio (Warden)     [MVP]
+│   └─ mcp_membrane/   generic MCP capability-broker (second harness)            [MVP]
+├─ evidence/      demos/ (runnable proofs) · run_*_e2e.py · DECISIONS.md
+├─ docs/          ARCHITECTURE.md (this document) · whitepaper
+├─ cli.py         the `metaspace` CLI (synthesize/ratify/gate/report/init)
 └─ run_proofs.py  one command runs every proof (reproducible evidence, no hosted CI)
 ```

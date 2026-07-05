@@ -6,7 +6,7 @@ states the trust boundary honestly and invites red-teaming.
 ## Trusted computing base (TCB) — assumed intact
 The guarantees hold only if these are sound:
 - the WebAssembly runtime (`wasmtime`) correctly enforces the capability model (no ambient authority);
-- the host operating system and filesystem;
+- the host operating system and filesystem (including, for the OS-sandbox path, the Linux kernel's Landlock LSM);
 - for the agent membrane: the Claude Code harness delivers `PreToolUse` events faithfully and runs the hook outside the agent;
 - the Python interpreter hosting the membrane.
 
@@ -24,8 +24,14 @@ the constitution (the defender authors and ratifies it), the host runtime, or th
   (FS r/w, network, env, subprocess). — `run_wasm_demo`, `run_wasi_demo`, `run_real_app_demo`,
   `bypass_proof`, `run_fuzz` (5000 random cases).
 - **Agent tool calls mediated before they run**; obfuscated shell caught structurally; fail-closed on
-  unreadable input. — `test_hook`, `test_shell_policy`.
-- **Epistemic hard tier**: no invented entities, no ungrounded actuation, citation required. — `run_knowledge_demo`.
+  unreadable input. Proven end-to-end as a product (the real hook enforces a session, writes an
+  audit, and `metaspace report` summarizes it) and across harnesses (the same core decides
+  identically via a generic MCP broker). — `test_hook`, `test_shell_policy`, `run_product_e2e`, `run_mcp_e2e`.
+- **OS-level write containment (Linux Landlock)**: a stock native program's filesystem writes are
+  confined by the kernel to its `.bio` write scope; an out-of-scope write is refused with EACCES.
+  Fail-closed if Landlock is unavailable. — `run_landlock_demo` (Linux only).
+- **Epistemic hard tier**: no invented entities, values within declared numeric ranges, no ungrounded
+  actuation, citation required. — `run_knowledge_demo`.
 - **Content-bound ratification + gate**; dry-run-learned capabilities require a justification. —
   `run_ratify_demo`, `run_gate_demo`, `run_ratification_review_demo`.
 
@@ -45,13 +51,16 @@ Concrete surfaces to attack:
 3. **Smuggle a capability past the ratification brake** without a justification — `core/ratification_review.py`.
 4. **Find a `(constitution, effect)` where `guard.check` allows something out of scope** — widen the
    generators in `run_fuzz.py`, change the seed.
+5. **Escape the Landlock write-confinement** — get a program under `sandbox_enforcer.py` to modify a
+   file outside its `.bio` write scope (note the honest MVP scope: writes only, Linux only).
 
 We welcome counterexamples. The best contribution is a **new failing proof**: a test that the
 current code cannot pass. If you find one, it is a real bug, not a rhetorical point.
 
 ## Reproduce the evidence
-`pip install wasmtime && python run_proofs.py` — 17/17. Each claim maps to a runnable proof; the
-suite includes a self-falsification audit that fails if the proofs are hollow.
+`pip install wasmtime && python run_proofs.py` — **21 proofs** (21/21 on Linux; on non-Linux the
+Landlock proof skips, so 20 pass + 1 skip). Each claim maps to a runnable proof; the suite includes
+a self-falsification audit that fails if the proofs are hollow.
 
 ## Responsible disclosure
 Report security issues to **admin@metaspace.bio**.

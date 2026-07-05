@@ -20,6 +20,7 @@
 \usepackage{xcolor}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{longtable}
 \usepackage{array}
 \usepackage{parskip}
 \usepackage{enumitem}
@@ -69,10 +70,13 @@ a boundary declared in a single, deliberately Turing-incomplete \code{.bio} cons
 effect outside the boundary is deterministically refused. Containment reduces to \emph{set
 membership}, which is decidable, so the runtime decision is deterministic and reproducible. We
 describe three composable membranes (capability, value-invariant, epistemic), a provenance chain
-(synthesis $\to$ human ratification $\to$ production gate), and an evidence ledger of twelve
-reproducible proofs run by a single command. We are explicit about what is \emph{hard}
-(unbypassable under the WebAssembly capability model) and what is \emph{soft} (semantic
-faithfulness, non-deterministic and non-enforcing).
+(synthesis $\to$ human ratification $\to$ production gate), a productized surface (a \code{metaspace}
+CLI, an agent-membrane ``Warden'' proven end-to-end, a second harness via a generic MCP broker over
+one shared decision core, and a Linux Landlock OS-sandbox that confines stock native binaries), and
+an evidence ledger of \textbf{twenty-one} reproducible proofs run by a single command. We are
+explicit about what is \emph{hard} (unbypassable under the WebAssembly capability model, or
+kernel-enforced under Landlock) and what is \emph{soft} (semantic faithfulness, non-deterministic
+and non-enforcing).
 
 \sect{1.\quad Problem --- intent is undecidable}
 The correctness question --- \emph{does the program do what its author intended?} --- is
@@ -94,7 +98,8 @@ All three membranes are the same reference-monitor pattern at a chokepoint,
 \textbf{deny-by-default}, with the decision made by the constitution.
 \begin{itemize}
 \item \textbf{Capability membrane} --- mediates effects on the world (filesystem, network, subprocess, \ldots).
-\item \textbf{Value-invariant membrane} --- guards declared safety bounds.
+\item \textbf{Value-invariant membrane} --- guards declared safety bounds (numeric ranges; in this
+repository realized as the hard tier's schema \code{RANGE} check, proven in \code{run\_knowledge\_demo}).
 \item \textbf{Epistemic membrane} --- bounds factual assertion and knowledge-based actuation.
 \end{itemize}
 \noindent\textbf{Guarantee ladder.} A membrane is only as hard as its chokepoint is unbypassable:
@@ -118,14 +123,16 @@ ratification, and cannot be broadened afterwards without detection. \measured
 \end{itemize}
 
 \sect{5.\quad Evidence --- reproducible ledger (\code{python run\_proofs.py})}
-Every row below is a real run; all seventeen reproduce together with one command,
-result \textbf{17/17} (the exact command is in the closing section).
+Every row below is a real run; all reproduce together with one command, result \textbf{21/21} on
+Linux (on non-Linux the OS-specific Landlock proof skips honestly, so 20 pass + 1 skip; the runner
+is skip-aware). The exact command is in the closing section.
 
 \renewcommand{\arraystretch}{1.15}
-\noindent\begin{tabularx}{\linewidth}{@{}R p{1.7cm} >{\raggedright\arraybackslash}p{6.0cm}@{}}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{8.9cm} p{1.5cm} >{\raggedright\arraybackslash}p{5.8cm}@{}}
 \toprule
 \footnotesize\textbf{Claim} & \footnotesize\textbf{Status} & \footnotesize\textbf{Evidence (observed output)} \\
 \midrule
+\endhead
 Capability membrane mediates every capability kind (custom host imports) & \measured &
 \code{run\_wasm\_demo}: 4 ALLOW / 5 DENY across FS write+read, NETWORK, ENV, SUBPROCESS (each scope-enforced); the forbidden write is physically absent \\
 Unbypassability under WebAssembly & \measured\ \mbox{+} \arch &
@@ -162,13 +169,30 @@ Property-based fuzz (adversarial coverage) & \measured &
 5000 random constitutions $\times$ random effects: deny-by-default never violated; the guard agrees with an independent scope oracle \\
 Self-falsification (anti-slop) & \measured &
 mutating the \code{.bio} flips the decision; sabotaging \code{guard.check} fails a proof; wasmtime itself refuses an ungranted syscall \\
+CLI product flow (M0) & \measured &
+\code{run\_cli\_e2e}: the real \code{metaspace} CLI drives synthesize $\to$ gate (refused) $\to$ ratify $\to$ gate (allowed) $\to$ report \\
+Agent-membrane product loop --- Warden (M1) & \measured &
+\code{run\_product\_e2e}: the real hook enforces a realistic session (6 ALLOW / 5 BLOCK), writes a project-local audit, and \code{metaspace report} summarizes it by capability kind \\
+One core, second harness --- generic MCP broker (M2) & \measured &
+\code{run\_mcp\_e2e}: the Claude Code hook and an MCP capability-broker reach identical verdicts on every effect; the broker refuses \emph{and does not perform} a denied write \\
+Native program OS-confined by its \code{.bio} --- Linux Landlock (M3) & \measured &
+\code{run\_landlock\_demo}: a stock \code{python} is Landlock-confined to its \code{.bio} write scope; an out-of-scope write is refused by the kernel (\code{EACCES}); the denied file is never created \\
 \bottomrule
-\end{tabularx}
+\end{longtable}
 
 \sect{6.\quad Scope, trust boundary \& honest limits}
 \begin{itemize}
-\item The \emph{hard} guarantee holds under the WebAssembly capability model. A language-level
-guard is bypassable (\code{ctypes}, direct syscalls) and is therefore \emph{not} shipped as a product.
+\item The \emph{hard} guarantee holds under a real substrate: the WebAssembly capability model, or a
+Linux \textbf{Landlock} OS-sandbox (\code{sandbox\_enforcer.py}, pure-Python \code{ctypes}) that
+confines a stock native program's filesystem \emph{writes} to its \code{.bio} from the kernel
+(out-of-scope write $\to$ \code{EACCES}; read/execute unrestricted so any binary runs; Linux-only;
+fail-closed if unavailable). A language-level guard is bypassable (\code{ctypes}, direct syscalls)
+and is therefore \emph{not} shipped as a product.
+\item The membrane's decision is factored into one harness-independent core; the Claude Code hook
+and a generic \textbf{MCP capability-broker} are thin adapters over it and reach identical verdicts
+(\code{run\_mcp\_e2e}). An MCP tool the agent may \emph{voluntarily} call is only advisory; the
+broker is \emph{hard} only when the agent's ambient authority is removed so its tools are the sole
+path to effects.
 \item Constitution synthesis is a static, name-based heuristic; it can under-declare under heavy
 dynamism. A \textbf{dry-run learning mode} observes concrete runtime effects and augments the
 constitution \emph{before} ratification, so an incomplete policy does not false-positive-block
@@ -181,8 +205,9 @@ heuristic and an optional LLM judge.
 \item The agent membrane mediates tool \emph{effects}, not the model's prose; its shell check is a
 \textbf{structural allowlist} (a shell lexer resolving real program names) --- obfuscation-resistant
 and fail-closed.
-\item \textbf{TCB:} the host runtime (\code{wasmtime}) and the operating system are assumed intact.
-WASI filesystem granularity is at the directory/permission level.
+\item \textbf{TCB:} the host runtime (\code{wasmtime}), the operating system (including the Linux
+kernel's Landlock LSM for the OS-sandbox path), and the Python interpreter hosting the membrane are
+assumed intact. WASI filesystem granularity is at the directory/permission level.
 \item This artifact does \emph{not} use SMT/Z3 proof or hardware synthesis; those belong to the
 broader MetaSpace.Bio programme and are out of scope here. No figure above is a benchmark or a
 marketing number: every \measured\ item is a reproducible run.
