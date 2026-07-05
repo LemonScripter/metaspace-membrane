@@ -1,0 +1,19 @@
+# MetaSpace Membrane as a pre-commit hook source.
+#
+# In YOUR repo's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/LemonScripter/metaspace-membrane
+#       rev: main
+#       hooks:
+#         - id: metaspace-gate
+#
+# Then `pre-commit run metaspace-gate` (and every commit) fails if a committed `metaspace.bio`
+# is not RATIFIED or was broadened after ratification — the same content-bound gate as CI,
+# run locally before the commit lands.
+- id: metaspace-gate
+  name: MetaSpace constitution gate (RATIFIED + unbroadened)
+  description: Fails if a committed metaspace.bio is not human-ratified, or was widened after ratifying.
+  entry: metaspace gate
+  language: python
+  files: (^|/)metaspace\.bio$

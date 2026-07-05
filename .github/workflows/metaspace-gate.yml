@@ -1,0 +1,32 @@
+# MetaSpace Membrane — team / CI constitution gate.
+#
+# Adopt this in YOUR repository: commit a *ratified* `metaspace.bio` at the repo root
+# (`metaspace ratify metaspace.bio`), and this job breaks the build whenever the committed
+# constitution is not RATIFIED, or was broadened after it was ratified (content-bound
+# fingerprint mismatch -> TAMPERED). The effect boundary becomes a merge-time invariant.
+#
+# HONEST NOTE: this workflow cannot be self-verified on THIS repository — GitHub Actions
+# billing is disabled here — so we do not claim a green Actions badge. The gate logic itself
+# is proven locally and cross-OS by `python evidence/run_team_gate_e2e.py` (part of
+# `run_proofs.py`); this file just runs that same `metaspace gate` command in Actions.
+name: metaspace-gate
+
+on: [push, pull_request]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install MetaSpace Membrane (the `metaspace` CLI)
+        run: pip install "metaspace-membrane @ git+https://github.com/LemonScripter/metaspace-membrane"
+      - name: Gate the committed constitution
+        run: |
+          if [ -f metaspace.bio ]; then
+            metaspace gate metaspace.bio
+          else
+            echo "::notice::no metaspace.bio at repo root — add a ratified one to enable the gate"
+          fi

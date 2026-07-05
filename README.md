@@ -74,8 +74,8 @@ metaspace report path/to/audit.jsonl      # human-readable session safety report
 
 One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
 by construction, and **verified on Linux**: `run_proofs.py` is green on Debian (kernel 6.1,
-Python 3.11) and on Windows — **21/21 on Linux** (including the kernel-enforced Landlock
-sandbox) and 20 pass + 1 skip on Windows (the Landlock proof runs only where the OS provides
+Python 3.11) and on Windows — **22/22 on Linux** (including the kernel-enforced Landlock
+sandbox) and 21 pass + 1 skip on Windows (the Landlock proof runs only where the OS provides
 it). The runs also surfaced and fixed real bugs (a path-portability bug, a shared-parser bug).
 macOS is not yet verified (no host available) — see [`SECURITY.md`](SECURITY.md).
 
@@ -102,6 +102,8 @@ python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (halluc
 python evidence/demos/run_entailment_demo.py          # soft tier flags faithfulness (never blocks)
 python products/ai_membrane/test_hook.py              # 17/17
 python evidence/run_product_e2e.py                    # Warden loop: real hook -> audit -> report (M1)
+python evidence/run_mcp_e2e.py                        # one core, second harness: MCP broker parity (M2)
+python evidence/run_team_gate_e2e.py                  # team/CI gate: only a ratified, unbroadened .bio passes (M4)
 python evidence/run_falsification.py                  # self-falsification: proofs are real, not slop
 ```
 
@@ -176,6 +178,31 @@ broker is *hard* only when the agent is deployed with its ambient authority remo
 broker's tools are its **only** path to the filesystem/network. Under that condition the
 guarantee equals the hook's; the broker cannot constrain effects reached through some other
 unmediated tool.
+
+### Team / CI: gate the constitution at merge time
+
+Commit a **ratified** `metaspace.bio` to your repo, and make "the effect boundary here is
+human-ratified and hasn't been silently broadened" a build-breaking check — the same
+content-bound ratification as the runtime gate, now enforced in CI and pre-commit:
+
+```yaml
+# .github/workflows/metaspace-gate.yml  (ships in this repo as a template)
+- run: pip install "metaspace-membrane @ git+https://github.com/LemonScripter/metaspace-membrane"
+- run: metaspace gate metaspace.bio      # exit 0 only if RATIFIED and unbroadened
+```
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/LemonScripter/metaspace-membrane
+    rev: main
+    hooks: [{ id: metaspace-gate }]
+```
+
+An unratified constitution, or one widened after ratifying (→ TAMPERED), fails the build.
+`python evidence/run_team_gate_e2e.py` proves the whole flow with the real CLI. (Honest note:
+the hosted Actions run is not self-verified on *this* repo — Actions billing is disabled here —
+so there is no green-badge claim; the gate logic is proven locally and cross-OS.)
 
 ---
 
@@ -276,4 +303,7 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
 
 ---
 
-© Szőke László-Ferenc — MetaSpace.Bio Engine Project. Patent pending. See [LICENSE](LICENSE).
+© Szőke László-Ferenc — MetaSpace.Bio Engine Project. Patent pending. See [LICENSE](LICENSE)
+(Proprietary). An open-core move to a Business Source License is intended and drafted for IP
+counsel in [`docs/LICENSE.BSL.draft.md`](docs/LICENSE.BSL.draft.md) — a non-binding draft; the
+`LICENSE` above governs until it is finalized.
