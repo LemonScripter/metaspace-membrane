@@ -36,6 +36,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | I-15 | **Complete capability mediation at the WebAssembly gate** (`products/app_membrane`): one guard-mediated host import per capability KIND — FILESYSTEM write/read, NETWORK, ENV, SUBPROCESS — each scope-enforced (in-scope ALLOW, out-of-scope DENY); an ungranted kind is unreachable by construction. | Delivers the "structural hardness" the reviews asked for: every declarable effect, not just filesystem, is hard-mediated at the unbypassable chokepoint. |
 | I-16 | **Self-falsification audit** (`evidence/run_falsification.py`): the repo tries to prove itself hollow — mutating the `.bio` flips the decision (data-driven), sabotaging `guard.check()` makes a proof FAIL (code-coupled), and wasmtime itself refuses an ungranted syscall (real substrate). | Anti-slop guarantee: the proofs measure real behaviour, not print `PASS`. A rare self-test that the evidence is falsifiable. |
 | I-17 | **Real program under the membrane** (`products/app_membrane/real_app`): a real Rust log-analysis utility (dir scan, per-file parse, aggregation, ranking, report) compiled to `wasm32-wasip1` and run under the WASI membrane; the report contains the CORRECT computed statistics for known input, and an out-of-grant read is refused. | Moves beyond toy demos: a real program doing real, verifiable work, contained to exactly its `.bio` grant. |
+| I-18 | **Property-based fuzz** (`evidence/run_fuzz.py`): 5000 random constitutions x random effects check two properties — deny-by-default is sound (an ungranted kind/mode is never allowed) and the guard agrees with an independent scope oracle (traversal, absolute paths, host/name globs). | Moves from hand-picked scenarios to adversarial coverage; a fixed seed keeps it reproducible; a mismatch prints the counterexample. |
 
 ## Evidence
 
@@ -43,6 +44,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 |---|---|---|
 | WebAssembly hard membrane (all capability kinds) | `python products/app_membrane/run_wasm_demo.py` | 4 ALLOW / 5 DENY across FS write+read / NET / ENV / SUBPROCESS, scope-enforced + physical check, exit 0 |
 | Self-falsification (anti-slop) | `python evidence/run_falsification.py` | mutation flips the decision; sabotaging guard.check() fails a proof; wasmtime refuses an ungranted syscall, exit 0 |
+| Property-based fuzz | `python evidence/run_fuzz.py` | 5000 random cases: 0 deny-by-default violations, 0 disagreements with an independent oracle, exit 0 |
 | Unbypassability | `python products/app_membrane/bypass_proof.py` | `unknown import` link error, exit 0 |
 | Real program under WASI | `python products/app_membrane/wasi/run_wasi_demo.py` | read/write granularity: READ + WROTE + 2 DENY (write to read-only input refused), exit 0 |
 | Real app: real work + containment | `python products/app_membrane/run_real_app_demo.py` | a real Rust log analyzer computes the correct stats for known input; out-of-grant read refused, exit 0 |

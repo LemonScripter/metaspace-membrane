@@ -32,6 +32,7 @@ PROOFS = [
     ("Structural shell policy (allowlist)",    "products/ai_membrane/test_shell_policy.py"),
     ("Threat-model matrix (honest coverage)",  "evidence/demos/run_threat_matrix_demo.py"),
     ("Self-falsification (anti-slop audit)",   "evidence/run_falsification.py"),
+    ("Property-based fuzz (5000 random cases)", "evidence/run_fuzz.py"),
 ]
 
 
