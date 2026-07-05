@@ -37,6 +37,7 @@ PROOFS = [
     ("CLI end-to-end product flow (M0)",       "evidence/run_cli_e2e.py"),
     ("Product e2e: real membrane -> audit -> report (M1)", "evidence/run_product_e2e.py"),
     ("MCP adapter-proof: same core, second harness (M2)", "evidence/run_mcp_e2e.py"),
+    ("SandboxEnforcer: real program OS-confined by .bio (M3, Linux/Landlock)", "evidence/run_landlock_demo.py"),
 ]
 
 
@@ -54,19 +55,35 @@ def main():
     for name, rel in PROOFS:
         p = subprocess.run([sys.executable, os.path.join(HERE, rel)],
                            capture_output=True, text=True)
-        ok = (p.returncode == 0)
-        results.append((name, ok))
-        print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
-        if not ok:
+        if p.returncode == 0 and "PROOF_SKIPPED" in (p.stdout or ""):
+            status = "SKIP"      # e.g. an OS-specific proof on a platform that can't run it
+        elif p.returncode == 0:
+            status = "PASS"
+        else:
+            status = "FAIL"
+        results.append((name, status))
+        print(f"  [{status}] {name}")
+        if status == "SKIP":
+            reason = next((l for l in (p.stdout or "").splitlines() if "PROOF_SKIPPED" in l), "")
+            if reason:
+                print("        " + reason.strip())
+        if status == "FAIL":
             tail = (p.stdout or "")[-600:] + (p.stderr or "")[-600:]
             print("  ---- output ----")
             for line in tail.splitlines():
                 print("  " + line)
             print("  ----------------")
     print("-" * 60)
-    passed = sum(1 for _, ok in results if ok)
-    all_ok = (passed == len(results))
-    print(f"  {passed}/{len(results)} proofs passed")
+    passed = sum(1 for _, s in results if s == "PASS")
+    skipped = sum(1 for _, s in results if s == "SKIP")
+    failed = sum(1 for _, s in results if s == "FAIL")
+    all_ok = (failed == 0)
+    summary = f"  {passed} passed"
+    if skipped:
+        summary += f", {skipped} skipped"
+    if failed:
+        summary += f", {failed} failed"
+    print(summary + f"  (of {len(results)} proofs)")
     print("  RESULT:", "ALL PROOFS PASS" if all_ok else "SOME PROOFS FAILED")
     print("=" * 60)
     return 0 if all_ok else 1

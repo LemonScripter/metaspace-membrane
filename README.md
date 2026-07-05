@@ -44,7 +44,7 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 | Contains | any application ⊂ its `.bio` | the coding assistant ⊂ its limits |
 | Chokepoint | WebAssembly capability import | Claude Code PreToolUse hook |
 | Guarantee | **unbypassable** (hard, WebAssembly only) | hard on the agent (sits outside it) |
-| Status | WebAssembly + WASI substrate (real programs, demonstrated) | **Warden MVP** — install → enforce → report loop, proven end-to-end |
+| Status | WebAssembly/WASI **or** OS-sandbox (Landlock): real native programs, kernel-contained | **Warden MVP** — install → enforce → report loop, proven end-to-end |
 
 Both are built on the same `core/` decision engine (`guard.py`) and the same `.bio` file.
 
@@ -73,10 +73,11 @@ metaspace report path/to/audit.jsonl      # human-readable session safety report
 ```
 
 One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
-by construction, and **verified on Linux**: `run_proofs.py` passes **20/20** on Debian
-(kernel 6.1, Python 3.11) as well as on Windows — a real run that also surfaced and fixed a
-path-portability bug in the test suite. macOS is not yet verified (no host available) — see
-[`SECURITY.md`](SECURITY.md).
+by construction, and **verified on Linux**: `run_proofs.py` is green on Debian (kernel 6.1,
+Python 3.11) and on Windows — **21/21 on Linux** (including the kernel-enforced Landlock
+sandbox) and 20 pass + 1 skip on Windows (the Landlock proof runs only where the OS provides
+it). The runs also surfaced and fixed real bugs (a path-portability bug, a shared-parser bug).
+macOS is not yet verified (no host available) — see [`SECURITY.md`](SECURITY.md).
 
 ---
 
@@ -93,6 +94,7 @@ Or run them individually:
 python products/app_membrane/run_wasm_demo.py         # every capability kind mediated (FS/NET/ENV/SUBPROCESS): 4 ALLOW / 5 DENY
 python products/app_membrane/bypass_proof.py          # ungranted gate -> unknown import (blocked)
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
+python evidence/run_landlock_demo.py                  # real native program OS-confined by .bio (Linux/Landlock, M3)
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_ratify_demo.py              # ratification is content-bound (tamper detected)
 python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
@@ -242,7 +244,7 @@ not its *truth*, so the human's judgement on the reason still matters.
 
 ```
 core/          shared decision engine (guard, knowledge, analyzer, agent_adapter)
-products/      app_membrane (WebAssembly) · ai_membrane (hook + installer) · mcp_membrane (broker)
+products/      app_membrane (WebAssembly + Landlock) · ai_membrane (hook + installer) · mcp_membrane (broker)
 evidence/      runnable proofs + decisions
 docs/          ARCHITECTURE.md
 ```
@@ -255,8 +257,11 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
 
 ## Honest limits
 
-- Product A's hard guarantee requires the WebAssembly substrate; a language-level guard is
-  bypassable and is not shipped as a product.
+- Product A's hard guarantee requires a real substrate: the WebAssembly capability model, or an
+  OS sandbox (**Landlock**, `products/app_membrane/sandbox_enforcer.py`) that confines a stock
+  native program's filesystem writes to its `.bio` from the kernel. A language-level guard is
+  bypassable and is not shipped as a product. The Landlock MVP confines *writes* (read/execute
+  unrestricted so any binary runs); it is Linux-only and fail-closed if unavailable.
 - The code→constitution synthesis is a static heuristic; a **dry-run learning mode**
   (`core/dryrun.py`) observes concrete runtime effects and augments the constitution *before*
   ratification, so it does not false-positive-block legitimate dynamic behaviour.

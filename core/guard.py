@@ -44,8 +44,8 @@ def parse_capabilities(bio_text: str):
             if re.search(r"\bCAPABILITIES\b\s*\{", line):
                 in_block = True
             continue
-        if "}" in line:
-            break
+        if line.strip().startswith("}"):   # block end — NOT any '}' (scopes may contain
+            break                          # braces, e.g. the {{PROJECT_ROOT}} placeholder)
         m = re.match(r"\s*([A-Z_]+)\s+([a-z0-9_]+)", line)
         if m and m.group(1) in KINDS:
             kind, mode = m.group(1), m.group(2)
