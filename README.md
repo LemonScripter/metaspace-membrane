@@ -54,7 +54,7 @@ Both are built on the same `core/` decision engine (`guard.py`) and the same `.b
 
 ```bash
 pip install wasmtime
-python run_proofs.py        # runs all four proofs; exit 0 if every one passes
+python run_proofs.py        # runs every proof; exit 0 if all pass
 ```
 
 Or run them individually:
@@ -68,8 +68,13 @@ python evidence/demos/run_ratify_demo.py              # ratification is content-
 python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
 python evidence/demos/run_knowledge_demo.py           # 2 ALLOW / 5 DENY (hallucination blocked)
 python evidence/demos/run_entailment_demo.py          # soft tier flags faithfulness (never blocks)
-python products/ai_membrane/test_hook.py              # 12/12
+python products/ai_membrane/test_hook.py              # 17/17
+python evidence/run_falsification.py                  # self-falsification: proofs are real, not slop
 ```
+
+The last one is a **self-falsification audit**: it mutates a constitution (the decision flips),
+sabotages `guard.check()` (a proof then fails), and has WebAssembly itself refuse an ungranted
+syscall — so the evidence is measuring real behaviour, not printing `PASS`.
 
 No hosted CI required — the proof is a command anyone can run.
 
