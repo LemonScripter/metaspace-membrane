@@ -62,6 +62,21 @@ software. See [`SECURITY.md`](SECURITY.md) for the threat model and how to try t
 
 ---
 
+## The `metaspace` CLI
+
+```bash
+pip install .                             # installs the `metaspace` command
+metaspace init .                          # synthesize a draft constitution from your code
+metaspace ratify metaspace.bio            # review + justify + stamp RATIFIED
+metaspace gate metaspace.bio              # exit 0 only if RATIFIED (use in CI)
+metaspace report path/to/audit.jsonl      # human-readable session safety report
+```
+
+One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
+by construction (Linux/macOS CI is a stated pending gap — see [`SECURITY.md`](SECURITY.md)).
+
+---
+
 ## Run the proofs (the evidence is a reproducible run)
 
 ```bash

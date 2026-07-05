@@ -38,6 +38,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | I-17 | **Real program under the membrane** (`products/app_membrane/real_app`): a real Rust log-analysis utility (dir scan, per-file parse, aggregation, ranking, report) compiled to `wasm32-wasip1` and run under the WASI membrane; the report contains the CORRECT computed statistics for known input, and an out-of-grant read is refused. | Moves beyond toy demos: a real program doing real, verifiable work, contained to exactly its `.bio` grant. |
 | I-18 | **Property-based fuzz** (`evidence/run_fuzz.py`): 5000 random constitutions x random effects check two properties — deny-by-default is sound (an ungranted kind/mode is never allowed) and the guard agrees with an independent scope oracle (traversal, absolute paths, host/name globs). | Moves from hand-picked scenarios to adversarial coverage; a fixed seed keeps it reproducible; a mismatch prints the counterexample. |
 | I-19 | **Dogfood synthesis** (`evidence/demos/run_dogfood_demo.py`): the synthesizer runs over this repo's own ~36 Python files and produces a real, non-trivial constitution matching our code's actual effects (FS r/w, subprocess, env, real deps). | Refutes "the synthesizer only works on a toy sample"; the noisy invariants are shown honestly, warts and all. |
+| I-20 | **M0 — `metaspace` CLI** (`cli.py`, pip entry point): one command over the engine — `synthesize / ratify / gate / report / init`, incl. a new human-readable session `report`. Cross-platform by construction (os.path/shlex, no OS-specific calls). | First step of productization (research prototype -> product). Honest gap: Linux/macOS CI is not run here (Actions billing-blocked); the `report` is the product's audit surface. |
 
 ## Evidence
 
@@ -51,6 +52,7 @@ a runnable proof (see `evidence/demos/` and `products/*/`).
 | Real app: real work + containment | `python products/app_membrane/run_real_app_demo.py` | a real Rust log analyzer computes the correct stats for known input; out-of-grant read refused, exit 0 |
 | Code -> constitution -> enforcement | `python evidence/demos/run_synth_demo.py` | synthesized policy bounds the app; an undeclared effect (subprocess) is denied by default, exit 0 |
 | Dogfood: synthesize from own code | `python evidence/demos/run_dogfood_demo.py` | real constitution from ~36 of this repo's files, matching its actual effects, exit 0 |
+| CLI end-to-end product flow | `python evidence/run_cli_e2e.py` | the real CLI: synthesize -> gate (refused) -> ratify -> gate (allowed) -> report, exit 0 |
 | Content-bound ratification | `python evidence/demos/run_ratify_demo.py` | SYNTHESIZED -> RATIFIED -> TAMPERED when the policy is widened after ratifying, exit 0 |
 | Ratification gate (production) | `python evidence/demos/run_gate_demo.py` | synthesized/tampered REFUSED, ratified RUNS and enforces, exit 0 |
 | Epistemic hard tier | `python evidence/demos/run_knowledge_demo.py` | 2 ALLOW / 5 DENY, exit 0 |
