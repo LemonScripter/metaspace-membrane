@@ -33,4 +33,4 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Install is idempotent and non-clobbering; `metaspace off` reverts cleanly (idempotent, agent-unreachable) | [PROVEN] | `run_install_proof` + `run_uninstall_proof` | Win + Linux (2026-07-13) |
 | First run is dry-run/observe (warns, does not block); blocking begins only after `metaspace enforce` | [PROVEN] | `run_dryrun_mode_proof` (WI-4) | Win + Linux (2026-07-12) |
 | `metaspace demo` shows the real attack being blocked (falsifiable, not a canned message) | [PROVEN] | `run_demo_proof` (WI-5) | Win + Linux (2026-07-13) |
-| Version strings agree across `pyproject.toml`, `plugin.json`, CLI, and CHANGELOG | [PROVEN] | P-VERSION (WI-6/WI-8) | _pending_ |
+| Version strings agree across `pyproject.toml`, `.claude-plugin/plugin.json`, and `metaspace --version` | [PROVEN] | `run_version_proof` (WI-6) | Win + Linux (2026-07-13) |

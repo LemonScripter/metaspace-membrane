@@ -21,6 +21,8 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   the membrane via Bash either. Proven by `run_selfprotect_proof.py` (P-SELFPROTECT).
 
 ### Added
+- **`metaspace --version`** and a version-parity check: `pyproject.toml`, `.claude-plugin/plugin.json`,
+  and the CLI must report the same version. Proven by `run_version_proof.py` (P-VERSION).
 - **`metaspace off`** — one-command uninstall: removes the hook and `METASPACE_*` env from
   `settings.json`, preserving every other setting/hook; idempotent; `--purge` also deletes the
   installed constitution. A human action the agent cannot reach (`metaspace` is not shell-
@@ -46,7 +48,7 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   INSTALLED constitution and confirms it blocks the Friendly-Fire vectors and allows legit work.
 - **P-ZERODEP** proof (`evidence/run_zerodep_proof.py`): the entire Warden decision path imports
   and makes real decisions with `wasmtime` made unimportable — falsifiable, wired into
-  `run_proofs.py`. Suite is now **29 proofs**: 29/29 on real Linux, 28 pass + 1 skip on Windows
+  `run_proofs.py`. Suite is now **30 proofs**: 30/30 on real Linux, 29 pass + 1 skip on Windows
   (Landlock is Linux-only).
 - Planning baseline for the easy-install work: `docs/INSTALL_PLAN.md`, `docs/CLAIMS.md` (claim
   ledger), and DECISIONS `I-27`.

@@ -22,6 +22,10 @@ import argparse
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+# single runtime source of the version; kept in lockstep with pyproject.toml and
+# .claude-plugin/plugin.json — enforced by evidence/run_version_proof.py (P-VERSION).
+__version__ = "0.1.0"
+
 
 def _ascii():
     # keep output encodable on any console (Windows cp1252 etc.)
@@ -423,6 +427,7 @@ def cmd_off(args):
 
 def build_parser():
     p = argparse.ArgumentParser(prog="metaspace", description="MetaSpace — a provable safety membrane.")
+    p.add_argument("--version", action="version", version="metaspace %s" % __version__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("synthesize", help="analyze code -> draft .bio")

@@ -78,7 +78,7 @@ proof (P-SELFPROTECT) must show a fully-deceived agent fails on **all** disable 
 | **WI-4** ✅ | Dry-run/observe as the default post-install state (hook `METASPACE_MODE`); `metaspace enforce` / `dryrun` to switch; `install --enforce` to skip | P-DRYRUN (`run_dryrun_mode_proof`) — **done** |
 | **WI-5** ✅ | `metaspace demo` — live self-test that drives the real hook over the Friendly-Fire attack and shows every effect blocked (exit 0 iff it really blocks) | P-DEMO (`run_demo_proof`) — **done** |
 | **WI-9** ✅ | `metaspace off` / uninstall (user-invoked, agent-unreachable, idempotent, non-clobbering, `--purge`) | P-UNINSTALL (`run_uninstall_proof`) — **done** |
-| **WI-6** | Plugin finalization: `plugin.json`/`hooks.json`/marketplace consistent; `CLAUDE_PROJECT_DIR`; version parity | P-VERSION + plugin-load smoke |
+| **WI-6** ✅ | `metaspace --version` + version parity across `pyproject.toml` / `.claude-plugin/plugin.json` / CLI; plugin manifest (`plugin.json`/`marketplace.json`/`hooks/hooks.json`) consistent | P-VERSION (`run_version_proof`) — **done** |
 | **WI-7** | Docs: `INSTALL.md` (quickstart + honest scope + reproduce), README quickstart, claim ledger | claim ledger |
 | **WI-8** | VC/release: `CHANGELOG.md`, semver 0.1.0→0.2.0, `v0.2.0` tag plan, CI extension | P-VERSION |
 
