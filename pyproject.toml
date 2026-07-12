@@ -11,7 +11,12 @@ requires-python = ">=3.10"
 license = { text = "Proprietary — patent pending" }
 authors = [{ name = "Szőke László-Ferenc", email = "admin@metaspace.bio" }]
 keywords = ["security", "sandbox", "webassembly", "capability", "ai-safety", "guardrail"]
-dependencies = ["wasmtime>=13"]
+# The Warden agent hook + core/ are stdlib-only (zero third-party deps). wasmtime is needed
+# ONLY to run the WebAssembly/WASI proofs — hence the optional [proofs] extra, not a runtime dep.
+dependencies = []
+
+[project.optional-dependencies]
+proofs = ["wasmtime>=13"]
 
 [project.scripts]
 metaspace = "cli:main"

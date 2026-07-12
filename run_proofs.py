@@ -31,6 +31,7 @@ PROOFS = [
     ("Epistemic soft tier (entailment flag)",  "evidence/demos/run_entailment_demo.py"),
     ("Agent membrane",                         "products/ai_membrane/test_hook.py"),
     ("Structural shell policy (allowlist)",    "products/ai_membrane/test_shell_policy.py"),
+    ("Zero-dependency Warden path (wasmtime is proofs-only)", "evidence/run_zerodep_proof.py"),
     ("Friendly Fire: prompt-injected RCE via untrusted repo made unreachable (AI Now brief)", "evidence/run_friendly_fire_proof.py"),
     ("Threat-model matrix (honest coverage)",  "evidence/demos/run_threat_matrix_demo.py"),
     ("Self-falsification (anti-slop audit)",   "evidence/run_falsification.py"),
