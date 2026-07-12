@@ -30,7 +30,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | The Warden hook + `core/` run with zero third-party dependencies (`wasmtime` is proofs-only) | [PROVEN] | `run_zerodep_proof` (WI-1) | Win + Linux (2026-07-12) |
 | One-step user-level install wires the hook into `~/.claude/settings.json` and it then blocks the attack | [PROVEN] | `run_install_proof` (WI-2) | Win + Linux (2026-07-12) |
 | A deceived agent cannot disable the membrane (settings/constitution write, or `metaspace off`/`ratify` via Bash) — even in the worst case (project root = home) | [PROVEN] | `run_selfprotect_proof` (WI-3) | Win + Linux (2026-07-12) |
-| Install is idempotent and non-clobbering (clean-revert uninstall: WI-9) | [PROVEN] | `run_install_proof` (WI-2) | Win + Linux (2026-07-12) |
+| Install is idempotent and non-clobbering; `metaspace off` reverts cleanly (idempotent, agent-unreachable) | [PROVEN] | `run_install_proof` + `run_uninstall_proof` | Win + Linux (2026-07-13) |
 | First run is dry-run/observe (warns, does not block); blocking begins only after `metaspace enforce` | [PROVEN] | `run_dryrun_mode_proof` (WI-4) | Win + Linux (2026-07-12) |
 | `metaspace demo` shows the real attack being blocked (falsifiable, not a canned message) | [PROVEN] | `run_demo_proof` (WI-5) | Win + Linux (2026-07-13) |
 | Version strings agree across `pyproject.toml`, `plugin.json`, CLI, and CHANGELOG | [PROVEN] | P-VERSION (WI-6/WI-8) | _pending_ |

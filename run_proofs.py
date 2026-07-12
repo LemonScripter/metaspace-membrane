@@ -36,6 +36,7 @@ PROOFS = [
     ("Self-protection: a deceived agent cannot disable the membrane (worst case)", "evidence/run_selfprotect_proof.py"),
     ("Dry-run install then enforce (no over-blocking on first run)", "evidence/run_dryrun_mode_proof.py"),
     ("`metaspace demo` really blocks the attack (live self-test)", "evidence/run_demo_proof.py"),
+    ("Uninstall: `metaspace off` clean, idempotent, agent-unreachable", "evidence/run_uninstall_proof.py"),
     ("Friendly Fire: prompt-injected RCE via untrusted repo made unreachable (AI Now brief)", "evidence/run_friendly_fire_proof.py"),
     ("Threat-model matrix (honest coverage)",  "evidence/demos/run_threat_matrix_demo.py"),
     ("Self-falsification (anti-slop audit)",   "evidence/run_falsification.py"),

@@ -363,6 +363,64 @@ def cmd_demo(args):
     return 1
 
 
+def cmd_off(args):
+    """Remove the Warden membrane (a human action; the agent cannot reach this — `metaspace` is
+    not shell-allowlisted and ~/.claude is outside its write scope). Idempotent; --purge also
+    deletes the installed constitution."""
+    import shutil
+    claude_dir, scope, _ = _claude_dir(args.project)
+    settings_path = os.path.join(claude_dir, "settings.json")
+    if not os.path.exists(settings_path):
+        print("Nothing to remove (%s-level)." % scope)
+        return 0
+    try:
+        settings = json.load(open(settings_path, encoding="utf-8"))
+    except Exception:
+        sys.stderr.write("! %s is not valid JSON\n" % settings_path)
+        return 1
+
+    changed = False
+    hooks = settings.get("hooks", {}) or {}
+    pre = hooks.get("PreToolUse", [])
+    new_pre = [h for h in pre if "session_guard_hook.py" not in json.dumps(h)]
+    if len(new_pre) != len(pre):
+        changed = True
+    if new_pre:
+        hooks["PreToolUse"] = new_pre
+    else:
+        hooks.pop("PreToolUse", None)
+    if hooks:
+        settings["hooks"] = hooks
+    else:
+        settings.pop("hooks", None)
+
+    env = settings.get("env", {}) or {}
+    for k in ("METASPACE_SESSION_BIO", "METASPACE_PROJECT_ROOT", "METASPACE_MODE",
+              "METASPACE_SESSION_AUDIT"):
+        if k in env:
+            del env[k]
+            changed = True
+    if env:
+        settings["env"] = env
+    else:
+        settings.pop("env", None)
+
+    with open(settings_path, "w", encoding="utf-8") as fh:
+        json.dump(settings, fh, indent=2)
+
+    if args.purge:
+        ms_dir = os.path.join(claude_dir, "metaspace")
+        if os.path.isdir(ms_dir):
+            shutil.rmtree(ms_dir, ignore_errors=True)
+
+    if changed:
+        print("MetaSpace Warden removed (%s-level)%s." % (scope, " + constitution purged" if args.purge else ""))
+        print("  Restart Claude Code to apply.")
+    else:
+        print("MetaSpace was not installed (%s-level); nothing to remove." % scope)
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="metaspace", description="MetaSpace — a provable safety membrane.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -406,6 +464,11 @@ def build_parser():
 
     dm = sub.add_parser("demo", help="live self-test: watch the membrane block the Friendly-Fire attack")
     dm.set_defaults(fn=cmd_demo)
+
+    off = sub.add_parser("off", help="remove the Warden membrane (idempotent)")
+    off.add_argument("--project", metavar="DIR", default=None)
+    off.add_argument("--purge", action="store_true", help="also delete the installed constitution")
+    off.set_defaults(fn=cmd_off)
     return p
 
 
