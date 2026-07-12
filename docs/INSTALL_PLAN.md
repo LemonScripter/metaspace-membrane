@@ -76,7 +76,7 @@ proof (P-SELFPROTECT) must show a fully-deceived agent fails on **all** disable 
 | **WI-2** ✅ | User-level installer: `metaspace install` (default `~/.claude/`; `--project DIR` for the agent-reachable variant) → merges `settings.json` + constitution in `~/.claude/metaspace/`, idempotent + non-clobbering, single command-string hook (matches the plugin) | P-INSTALL, P-IDEMPOTENT (`run_install_proof`) — **done** |
 | **WI-3** ⭐ ✅ | Self-protecting default constitution: `FILESYSTEM deny "{{CLAUDE_HOME}}/**"` enforced by a write deny-override in the guard, plus `metaspace` not on the shell allowlist. Blocks every disable route even when project root = home | P-SELFPROTECT (`run_selfprotect_proof`) — **done** |
 | **WI-4** ✅ | Dry-run/observe as the default post-install state (hook `METASPACE_MODE`); `metaspace enforce` / `dryrun` to switch; `install --enforce` to skip | P-DRYRUN (`run_dryrun_mode_proof`) — **done** |
-| **WI-5** | `metaspace demo` self-test wrapping the Friendly-Fire proof against the installed config | P-DEMO |
+| **WI-5** ✅ | `metaspace demo` — live self-test that drives the real hook over the Friendly-Fire attack and shows every effect blocked (exit 0 iff it really blocks) | P-DEMO (`run_demo_proof`) — **done** |
 | **WI-9** | `metaspace off` / uninstall (user-invoked, agent-unreachable) | P-UNINSTALL (+ P-SELFPROTECT) |
 | **WI-6** | Plugin finalization: `plugin.json`/`hooks.json`/marketplace consistent; `CLAUDE_PROJECT_DIR`; version parity | P-VERSION + plugin-load smoke |
 | **WI-7** | Docs: `INSTALL.md` (quickstart + honest scope + reproduce), README quickstart, claim ledger | claim ledger |

@@ -21,6 +21,10 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   the membrane via Bash either. Proven by `run_selfprotect_proof.py` (P-SELFPROTECT).
 
 ### Added
+- **`metaspace demo`** — a live self-test: it spawns the REAL hook over the Friendly-Fire attack
+  in a throwaway repo and shows every malicious effect blocked (and normal work allowed), exiting
+  non-zero if anything leaks. A real end-to-end block, not a printed claim. Proven by
+  `run_demo_proof.py` (P-DEMO).
 - **Dry-run/observe first-run.** A fresh install starts in dry-run: the hook records and warns
   (on stderr) what it *would* block, but lets it through, so the first session is never
   over-blocked. `metaspace enforce` turns on blocking; `metaspace dryrun` returns to observe;
@@ -38,7 +42,7 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   INSTALLED constitution and confirms it blocks the Friendly-Fire vectors and allows legit work.
 - **P-ZERODEP** proof (`evidence/run_zerodep_proof.py`): the entire Warden decision path imports
   and makes real decisions with `wasmtime` made unimportable — falsifiable, wired into
-  `run_proofs.py`. Suite is now **27 proofs**: 27/27 on real Linux, 26 pass + 1 skip on Windows
+  `run_proofs.py`. Suite is now **28 proofs**: 28/28 on real Linux, 27 pass + 1 skip on Windows
   (Landlock is Linux-only).
 - Planning baseline for the easy-install work: `docs/INSTALL_PLAN.md`, `docs/CLAIMS.md` (claim
   ledger), and DECISIONS `I-27`.
