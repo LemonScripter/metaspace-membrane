@@ -177,7 +177,7 @@ happened* by the absence of its own effect — not by a verdict we assert.
 ```
 
 Full suite on the same host: **`23 passed (of 23 proofs) — ALL PROOFS PASS`** (includes the
-kernel-level Landlock proof, Section 8).
+kernel-level Landlock proof, Section 9).
 
 ---
 
