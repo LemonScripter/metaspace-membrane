@@ -12,6 +12,14 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   to run the WebAssembly/WASI proofs, not for the shipped agent protection. Runtime install:
   `pip install metaspace-membrane`; to run the proof suite: `pip install metaspace-membrane[proofs]`.
 
+### Security
+- **Self-protection:** the shipped constitution now denies writes to the Claude config
+  (`FILESYSTEM deny "{{CLAUDE_HOME}}/**"`), enforced by a new FILESYSTEM write **deny-override**
+  in the guard. Even in the worst case — Claude Code opened at the home directory, so `~/.claude`
+  is inside the granted write scope — a deceived agent cannot write `settings.json` or the
+  constitution, and `metaspace off`/`ratify` are not on the shell allowlist, so it cannot disable
+  the membrane via Bash either. Proven by `run_selfprotect_proof.py` (P-SELFPROTECT).
+
 ### Added
 - **`metaspace install`** — one-step user-level installer (default `~/.claude/`): merges the
   PreToolUse hook into `settings.json` and drops an editable constitution into
@@ -25,7 +33,7 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   INSTALLED constitution and confirms it blocks the Friendly-Fire vectors and allows legit work.
 - **P-ZERODEP** proof (`evidence/run_zerodep_proof.py`): the entire Warden decision path imports
   and makes real decisions with `wasmtime` made unimportable — falsifiable, wired into
-  `run_proofs.py`. Suite is now **25 proofs**: 25/25 on real Linux, 24 pass + 1 skip on Windows
+  `run_proofs.py`. Suite is now **26 proofs**: 26/26 on real Linux, 25 pass + 1 skip on Windows
   (Landlock is Linux-only).
 - Planning baseline for the easy-install work: `docs/INSTALL_PLAN.md`, `docs/CLAIMS.md` (claim
   ledger), and DECISIONS `I-27`.

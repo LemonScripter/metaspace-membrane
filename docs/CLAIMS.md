@@ -29,7 +29,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 |---|---|---|---|
 | The Warden hook + `core/` run with zero third-party dependencies (`wasmtime` is proofs-only) | [PROVEN] | `run_zerodep_proof` (WI-1) | Win + Linux (2026-07-12) |
 | One-step user-level install wires the hook into `~/.claude/settings.json` and it then blocks the attack | [PROVEN] | `run_install_proof` (WI-2) | Win + Linux (2026-07-12) |
-| A deceived agent cannot disable the membrane (settings/constitution write, or `metaspace off`/`ratify` via Bash) | [PROVEN] | P-SELFPROTECT (WI-3/WI-9) | _pending_ |
+| A deceived agent cannot disable the membrane (settings/constitution write, or `metaspace off`/`ratify` via Bash) — even in the worst case (project root = home) | [PROVEN] | `run_selfprotect_proof` (WI-3) | Win + Linux (2026-07-12) |
 | Install is idempotent and non-clobbering (clean-revert uninstall: WI-9) | [PROVEN] | `run_install_proof` (WI-2) | Win + Linux (2026-07-12) |
 | First run is dry-run/observe; enforcement begins only after the user ratifies | [PROVEN] | P-DRYRUN (WI-4) | _pending_ |
 | `metaspace demo` shows the real attack being blocked (falsifiable, not a canned message) | [PROVEN] | P-DEMO (WI-5) | _pending_ |

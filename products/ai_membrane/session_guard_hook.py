@@ -44,6 +44,9 @@ sys.path.insert(0, REPO_ROOT)
 PROJECT_ROOT = (os.environ.get("METASPACE_PROJECT_ROOT")
                 or os.environ.get("CLAUDE_PROJECT_DIR")   # set by Claude Code (plugin/hook)
                 or os.getcwd()).replace("\\", "/")
+# the Claude config dir — substituted into the constitution so it can deny writes to its own
+# config (self-protection), independent of where the project root happens to be.
+CLAUDE_HOME = os.path.expanduser("~/.claude").replace("\\", "/")
 BIO_PATH = os.environ.get("METASPACE_SESSION_BIO",
                           os.path.join(HERE, "session.constitution.bio"))
 AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
@@ -115,7 +118,7 @@ def main():
 
     try:
         with open(BIO_PATH, encoding="utf-8") as fh:
-            bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT)
+            bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT).replace("{{CLAUDE_HOME}}", CLAUDE_HOME)
         from core.guard import Guard
         # the hook is the single audit authority (it logs with tool + kind + target); the guard
         # must not double-log to the same file -> audit_path=False (in-memory decisions only).
