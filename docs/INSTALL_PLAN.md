@@ -4,8 +4,9 @@
 attack in essentially one step, sees it working in seconds, and cannot have the protection
 silently disabled by a deceived agent.
 
-**Branch:** `feat/warden-install` (off `main` @ `ac0f3db`). Version target: **0.2.0**.
-**Status:** planning locked; execution in progress (WI-1 first).
+**Branch:** `feat/warden-install` (off `main`). Version: **0.2.0**.
+**Status:** ✅ **F1 complete** — every work item done, **30 proofs green cross-OS** (30/30 real
+Linux, 29 pass + 1 skip Windows). Ready for a PR into `main` + a `v0.2.0` tag.
 
 ---
 
@@ -80,7 +81,7 @@ proof (P-SELFPROTECT) must show a fully-deceived agent fails on **all** disable 
 | **WI-9** ✅ | `metaspace off` / uninstall (user-invoked, agent-unreachable, idempotent, non-clobbering, `--purge`) | P-UNINSTALL (`run_uninstall_proof`) — **done** |
 | **WI-6** ✅ | `metaspace --version` + version parity across `pyproject.toml` / `.claude-plugin/plugin.json` / CLI; plugin manifest (`plugin.json`/`marketplace.json`/`hooks/hooks.json`) consistent | P-VERSION (`run_version_proof`) — **done** |
 | **WI-7** ✅ | Docs: `INSTALL.md` (quickstart + commands + honest scope + reproduce), README "Install & try" section; every claim traced to a proof in the claim ledger | claim ledger — **done** |
-| **WI-8** | VC/release: `CHANGELOG.md`, semver 0.1.0→0.2.0, `v0.2.0` tag plan, CI extension | P-VERSION |
+| **WI-8** ✅ | Release: semver 0.1.0→**0.2.0** (all three sources), CHANGELOG `[0.2.0]`, `proofs` GitHub Actions workflow (ubuntu+windows, adoptable). `v0.2.0` tag + PR are the user's final push. | P-VERSION — **done** |
 
 **Sequence:** WI-1 → WI-2 → **WI-3** → WI-4 → WI-5 → **WI-9** → WI-6 → WI-7 → WI-8.
 Each merges to `main` only with a green DoD, via PR. `main` stays green; tag `v0.2.0` when the

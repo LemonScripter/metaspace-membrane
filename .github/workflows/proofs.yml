@@ -1,0 +1,29 @@
+# MetaSpace Membrane — the reproducible proof suite.
+#
+# Runs every membrane proof on Linux and Windows. The whole product's honesty rests on
+# `claim = proof`: this job re-runs `python run_proofs.py`, which must stay green.
+#
+# HONEST NOTE: this workflow cannot be self-verified on THIS repository — GitHub Actions
+# billing is disabled here — so we do not claim a green Actions badge. The suite is verified
+# by hand on Windows and on a real Linux host every change; this file lets any fork run the
+# same one command in CI. On Windows the Linux-only Landlock proof skips (reported honestly).
+name: proofs
+
+on: [push, pull_request]
+
+jobs:
+  proofs:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install with the proofs extra (wasmtime)
+        run: pip install ".[proofs]"
+      - name: Run the reproducible proof suite
+        run: python run_proofs.py

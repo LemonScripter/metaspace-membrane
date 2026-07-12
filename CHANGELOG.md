@@ -4,7 +4,9 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com); the project uses semantic versioning.
 Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membrane[proofs]`).
 
-## [Unreleased] — Warden easy-install (F1)
+## [Unreleased]
+
+## [0.2.0] — 2026-07-13 — Warden easy-install (F1)
 
 ### Changed
 - **Dependencies:** the Warden agent hook and `core/` are now **zero third-party dependencies**.
