@@ -21,6 +21,11 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   the membrane via Bash either. Proven by `run_selfprotect_proof.py` (P-SELFPROTECT).
 
 ### Added
+- **Dry-run/observe first-run.** A fresh install starts in dry-run: the hook records and warns
+  (on stderr) what it *would* block, but lets it through, so the first session is never
+  over-blocked. `metaspace enforce` turns on blocking; `metaspace dryrun` returns to observe;
+  `metaspace install --enforce` skips dry-run. Mode carried in `METASPACE_MODE`. Proven by
+  `run_dryrun_mode_proof.py` (P-DRYRUN).
 - **`metaspace install`** — one-step user-level installer (default `~/.claude/`): merges the
   PreToolUse hook into `settings.json` and drops an editable constitution into
   `~/.claude/metaspace/`. User-level by design so the membrane's config sits outside any
@@ -33,7 +38,7 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   INSTALLED constitution and confirms it blocks the Friendly-Fire vectors and allows legit work.
 - **P-ZERODEP** proof (`evidence/run_zerodep_proof.py`): the entire Warden decision path imports
   and makes real decisions with `wasmtime` made unimportable — falsifiable, wired into
-  `run_proofs.py`. Suite is now **26 proofs**: 26/26 on real Linux, 25 pass + 1 skip on Windows
+  `run_proofs.py`. Suite is now **27 proofs**: 27/27 on real Linux, 26 pass + 1 skip on Windows
   (Landlock is Linux-only).
 - Planning baseline for the easy-install work: `docs/INSTALL_PLAN.md`, `docs/CLAIMS.md` (claim
   ledger), and DECISIONS `I-27`.

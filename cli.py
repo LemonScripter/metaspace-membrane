@@ -214,6 +214,9 @@ def cmd_install(args):
         env["METASPACE_PROJECT_ROOT"] = base
     else:
         env.pop("METASPACE_PROJECT_ROOT", None)
+    # fresh installs start in DRY-RUN so the first session is never over-blocked; the user
+    # reviews what would be blocked, then runs `metaspace enforce`. --enforce skips this.
+    env["METASPACE_MODE"] = "enforce" if args.enforce else "dryrun"
 
     # single command-string form (matches the plugin hooks.json)
     hook_entry = {
@@ -230,17 +233,64 @@ def cmd_install(args):
     with open(settings_path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
 
+    mode = env["METASPACE_MODE"]
     print("MetaSpace Warden installed (%s-level)." % scope)
     print("  settings.json:", settings_path)
     print("  constitution :", bio_dest, "(edit to adjust scope / allowlist)")
+    print("  mode         :", mode,
+          "— observes and warns but does NOT block yet" if mode == "dryrun" else "— blocking")
     if scope == "user":
         print("  applies to   : every Claude Code project on this machine")
     else:
         print("  NOTE: a project-local install is reachable by the agent; user-level is safer.")
     print()
     print("  NEXT: restart Claude Code, then /hooks to confirm the membrane is active.")
+    if mode == "dryrun":
+        print("  REVIEW: run a session, then  metaspace report  shows what WOULD be blocked;")
+        print("          when satisfied, turn on blocking with:  metaspace enforce"
+              + ("" if scope == "user" else " --project " + base))
     print("  Remove it any time with:  metaspace off" + ("" if scope == "user" else " --project " + base))
     return 0
+
+
+def _claude_dir(project):
+    if project:
+        base = os.path.abspath(project).replace("\\", "/")
+        return os.path.join(base, ".claude"), "project", base
+    return os.path.join(os.path.expanduser("~"), ".claude"), "user", None
+
+
+def _set_mode(project, mode):
+    """Flip METASPACE_MODE in an installed settings.json (a human action; the agent cannot
+    reach it — ~/.claude is outside the write scope and `metaspace` is not shell-allowlisted)."""
+    claude_dir, scope, _ = _claude_dir(project)
+    settings_path = os.path.join(claude_dir, "settings.json")
+    if not os.path.exists(settings_path):
+        sys.stderr.write("MetaSpace is not installed (%s-level). Run:  metaspace install\n" % scope)
+        return 2
+    try:
+        settings = json.load(open(settings_path, encoding="utf-8"))
+    except Exception:
+        sys.stderr.write("! %s is not valid JSON\n" % settings_path)
+        return 1
+    env = settings.get("env", {})
+    if "METASPACE_SESSION_BIO" not in env:
+        sys.stderr.write("MetaSpace hook not found in %s. Run:  metaspace install\n" % settings_path)
+        return 2
+    env["METASPACE_MODE"] = mode
+    settings["env"] = env
+    with open(settings_path, "w", encoding="utf-8") as fh:
+        json.dump(settings, fh, indent=2)
+    print("MetaSpace mode -> %s (%s-level). Restart Claude Code to apply." % (mode, scope))
+    return 0
+
+
+def cmd_enforce(args):
+    return _set_mode(args.project, "enforce")
+
+
+def cmd_dryrun(args):
+    return _set_mode(args.project, "dryrun")
 
 
 def build_parser():
@@ -272,7 +322,17 @@ def build_parser():
                      help="install into one project's .claude/ instead of ~/.claude "
                           "(agent-reachable; user-level is safer)")
     ins.add_argument("--force", action="store_true", help="overwrite an existing installed constitution")
+    ins.add_argument("--enforce", action="store_true",
+                     help="install already blocking (skip the default dry-run/observe first run)")
     ins.set_defaults(fn=cmd_install)
+
+    en = sub.add_parser("enforce", help="turn on blocking (leave dry-run/observe mode)")
+    en.add_argument("--project", metavar="DIR", default=None)
+    en.set_defaults(fn=cmd_enforce)
+
+    dr = sub.add_parser("dryrun", help="return to dry-run/observe mode (warn but do not block)")
+    dr.add_argument("--project", metavar="DIR", default=None)
+    dr.set_defaults(fn=cmd_dryrun)
     return p
 
 

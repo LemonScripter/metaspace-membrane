@@ -53,10 +53,10 @@ def metaspace_hooks(settings):
 
 
 def drive_hook(settings, command):
-    """Drive the REAL hook with the INSTALLED constitution; return 0 (ALLOW) or 2 (BLOCK)."""
+    """Drive the REAL hook with the INSTALLED settings (constitution + mode); 0=ALLOW, 2=BLOCK."""
     proj = tempfile.mkdtemp(prefix="ff_proj_")
     env = dict(os.environ)
-    env["METASPACE_SESSION_BIO"] = settings["env"]["METASPACE_SESSION_BIO"]
+    env.update(settings.get("env", {}))            # SESSION_BIO + MODE, as Claude Code injects them
     env["METASPACE_PROJECT_ROOT"] = proj.replace("\\", "/")
     env["METASPACE_SESSION_AUDIT"] = os.path.join(proj, "audit.jsonl")
     ev = {"tool_name": "Bash", "tool_input": {"command": command}}
@@ -80,8 +80,9 @@ def main():
     with open(os.path.join(home, ".claude", "settings.json"), "w", encoding="utf-8") as fh:
         json.dump(seed, fh)
 
-    # 1) install
-    r = run_install(home)
+    # 1) install (in enforce mode so the block assertions below reflect a live membrane;
+    #    the dry-run default + enforce flip is covered by run_dryrun_mode_proof.py)
+    r = run_install(home, ["--enforce"])
     check(r.returncode == 0, "installer exits 0 (%s)" % (r.stderr.strip()[:60] or "ok"))
     s = settings_of(home) or {}
 
@@ -98,7 +99,7 @@ def main():
           "installed constitution exists under the user's ~/.claude")
 
     # 3) idempotent: a second install must not duplicate or corrupt
-    run_install(home)
+    run_install(home, ["--enforce"])
     s2 = settings_of(home) or {}
     check(len(metaspace_hooks(s2)) == 1, "still exactly one MetaSpace hook after a 2nd install")
     check(s2.get("env", {}).get("FOO") == "bar", "unrelated env still intact after 2nd install")
