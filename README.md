@@ -35,6 +35,12 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 (advisory)       (bypassable)        (hard on agent)   (unbypassable)
 ```
 
+> **Case study — "Friendly Fire" (AI Now Institute, 2026):** a prompt-injected coding agent is
+> steered by a malicious repo into running a payload → RCE. We assume the model is *fully*
+> deceived and still make the effect unreachable. A real functional payload fires without the
+> membrane and never with it. See **[`docs/THREAT_FRIENDLY_FIRE.md`](docs/THREAT_FRIENDLY_FIRE.md)**
+> · reproduce with `python evidence/run_friendly_fire_proof.py`.
+
 ---
 
 ## Two products, one engine

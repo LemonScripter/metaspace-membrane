@@ -27,6 +27,11 @@ the constitution (the defender authors and ratifies it), the host runtime, or th
   unreadable input. Proven end-to-end as a product (the real hook enforces a session, writes an
   audit, and `metaspace report` summarizes it) and across harnesses (the same core decides
   identically via a generic MCP broker). — `test_hook`, `test_shell_policy`, `run_product_e2e`, `run_mcp_e2e`.
+- **Prompt-injection → RCE via an untrusted repo is contained** even when the model is fully
+  deceived: the injected script/binary and every shell-wrapper indirection are blocked at the
+  tool-call gate, and a *real functional payload* fires without the membrane and never with it.
+  See the worked case study **[`docs/THREAT_FRIENDLY_FIRE.md`](docs/THREAT_FRIENDLY_FIRE.md)**
+  (AI Now Institute "Friendly Fire" brief). — `run_friendly_fire_proof`.
 - **OS-level write containment (Linux Landlock)**: a stock native program's filesystem writes are
   confined by the kernel to its `.bio` write scope; an out-of-scope write is refused with EACCES.
   Fail-closed if Landlock is unavailable. — `run_landlock_demo` (Linux only).

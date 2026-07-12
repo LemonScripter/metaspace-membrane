@@ -15,6 +15,17 @@ extracts each sub-command's program name. Two policies, defense-in-depth:
     of each sub-command (e.g. "git push" matches ["git","push", ...]), not a raw substring,
     so spacing/quoting tricks do not slip past it.
 
+INTERPRETER PASSTHROUGH (hardened): a shell interpreter (sh/bash/…) can run ANY program, so
+allowlisting one would silently void the whole allowlist (`bash evil.sh` sneaks `evil.sh` past
+a program-name check). An interpreter invocation is therefore only allowed when what it will
+run is itself allowlisted:
+  - `bash script.sh`      -> the script's basename must be allowlisted;
+  - `bash -c "CMD"`       -> CMD is re-checked recursively through this same policy;
+  - `CMD | bash`          -> the interpreter executes unverifiable piped stdin -> DENY;
+  - `bash` (bare)         -> nothing is specified to run -> allowed.
+This closes the "Friendly Fire" class of attack (AI Now Institute, 2026), where a prompt-
+injected agent is steered to run a malicious repo script via a shell wrapper.
+
 Unparseable input (unbalanced quotes, etc.) -> DENY (fail-closed): a policy that cannot parse
 the command must not allow it.
 """
@@ -26,6 +37,9 @@ import shlex
 _SEP = {";", "&&", "||", "|", "&", "\n", "(", ")"}
 # redirection operators: drop the operator AND its target token (a file, not a command)
 _REDIR = {">", ">>", "<", "<<", "<<<", "2>", "2>>", "&>", ">&", "1>", "1>>"}
+# shell interpreters: allowlisting one voids the allowlist (they run ANY program), so an
+# interpreter is only allowed if what it will execute is itself allowlisted (see check()).
+_SHELL_INTERPRETERS = {"sh", "bash", "zsh", "dash", "ksh", "ash"}
 _ASSIGN = None  # compiled lazily
 
 
@@ -45,25 +59,33 @@ def _tokenize(cmd: str):
     return list(lex)
 
 
-def sub_commands(cmd: str):
-    """Split a command line into sub-commands (each a list of tokens). Raises ValueError if
-    the command cannot be tokenized."""
+def _sub_commands_ex(cmd: str):
+    """Split a command line into (tokens, piped_in) pairs, where piped_in is True when the
+    sub-command receives its stdin from a preceding `|`. Raises ValueError if the command
+    cannot be tokenized."""
     tokens = _tokenize(cmd)
-    groups, cur, i = [], [], 0
+    groups, cur, cur_piped, i = [], [], False, 0
     while i < len(tokens):
         t = tokens[i]
         if t in _SEP:
             if cur:
-                groups.append(cur)
+                groups.append((cur, cur_piped))
                 cur = []
+            cur_piped = (t == "|")   # the next sub-command is piped-in iff this separator is |
         elif t in _REDIR:
             i += 1  # skip the redirect target token as well
         else:
             cur.append(t)
         i += 1
     if cur:
-        groups.append(cur)
+        groups.append((cur, cur_piped))
     return groups
+
+
+def sub_commands(cmd: str):
+    """Split a command line into sub-commands (each a list of tokens). Raises ValueError if
+    the command cannot be tokenized."""
+    return [toks for toks, _piped in _sub_commands_ex(cmd)]
 
 
 def program_names(cmd: str):
@@ -77,18 +99,46 @@ def program_names(cmd: str):
     return names
 
 
+def _check_interpreter(toks, piped, allow, deny):
+    """An allowlisted shell interpreter (toks[0]) may only run allowlisted work. Returns
+    (True, reason) if what it will execute is verifiably allowlisted, else (False, reason)."""
+    prog = os.path.basename(toks[0])
+    # 1) piped-in stdin: the interpreter runs content we cannot see -> fail-closed
+    if piped:
+        return False, f"shell interpreter '{prog}' runs unverifiable piped stdin -> fail-closed"
+    args = toks[1:]
+    # 2) -c / -lc / -xc "CMD": re-check the command string through this same policy
+    for j, a in enumerate(args):
+        if a.startswith("-") and not a.startswith("--") and "c" in a:
+            if j + 1 < len(args):
+                ok, reason = check(args[j + 1], allow=allow, deny=deny)
+                return (ok, "shell -c payload allowlisted" if ok
+                        else f"shell -c payload blocked: {reason}")
+            return False, f"shell interpreter '{prog}' -c with no command string -> fail-closed"
+    # 3) first non-flag argument is a script path -> its basename must be allowlisted too
+    for a in args:
+        if a.startswith("-"):
+            continue
+        script = os.path.basename(a)
+        if script not in allow:
+            return False, f"shell script '{script}' run by '{prog}' is not in the allowlist"
+        return True, f"shell script '{script}' allowlisted"
+    # 4) bare interpreter, no script, not piped -> nothing specified to run
+    return True, f"bare shell interpreter '{prog}' (no program specified)"
+
+
 def check(cmd: str, allow=None, deny=None):
     """Structural decision. -> (True, reason) to allow, (False, reason) to deny (fail-closed)."""
     allow = set(allow or [])
     deny = list(deny or [])
     try:
-        subs = sub_commands(cmd)
+        subs = _sub_commands_ex(cmd)
     except ValueError as e:
         return False, f"unparseable shell command ({e}) -> fail-closed"
 
     # token-based denylist: a denied invocation is a prefix of a sub-command's tokens
-    for sub in subs:
-        toks = [t for t in sub if not _is_assignment(t)]
+    for toks_raw, _piped in subs:
+        toks = [t for t in toks_raw if not _is_assignment(t)]
         for entry in deny:
             dt = entry.split()
             if dt and toks[:len(dt)] == dt:
@@ -96,13 +146,18 @@ def check(cmd: str, allow=None, deny=None):
 
     # allowlist: every invoked program must be explicitly allowed
     if allow:
-        for sub in subs:
-            toks = [t for t in sub if not _is_assignment(t)]
+        for toks_raw, piped in subs:
+            toks = [t for t in toks_raw if not _is_assignment(t)]
             if not toks:
                 continue
             name = os.path.basename(toks[0])
             if name not in allow:
                 return False, f"program '{name}' not in the allowlist"
+            # an allowlisted interpreter must not become an allowlist bypass (see module docstring)
+            if name in _SHELL_INTERPRETERS:
+                ok, reason = _check_interpreter(toks, piped, allow, deny)
+                if not ok:
+                    return False, reason
         return True, "all invoked programs are allowlisted"
 
     return True, "no denylist match (no allowlist configured)"
