@@ -7,6 +7,12 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **`metaspace ui`** — a localhost control panel to configure the membrane per working directory:
+  pick a folder, set what the agent may write / reach / run, choose Observe or Enforce. Zero-dep
+  (stdlib `http.server`); it binds `127.0.0.1`, and a per-launch token + Origin/Host checks defend
+  it so a malicious website cannot reconfigure the membrane. Friendly toggles map to a real `.bio`
+  that always includes the self-protection deny (`core/bio_fields.py`). `metaspace projects` lists
+  configured directories. Proven by `run_ui_proof.py` (P-UI-API + P-UI-CSRF).
 - **Per-working-directory constitutions** (`core/project_config.py`): each working directory can
   have its own constitution + enforcement mode, all stored user-level under `~/.claude/metaspace`
   (registry + `projects/<hash>.bio`), so they stay outside any project's write scope —

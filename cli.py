@@ -425,6 +425,25 @@ def cmd_off(args):
     return 0
 
 
+def cmd_ui(args):
+    """Open the control panel: a localhost web UI to configure the membrane per working directory."""
+    from products.ai_membrane import ui_server
+    ui_server.serve(port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
+def cmd_projects(args):
+    """List the working directories that have their own membrane config."""
+    from core import project_config
+    rows = project_config.list_projects()
+    if not rows:
+        print("No per-project configs yet. Open the panel with:  metaspace ui")
+        return 0
+    for r in rows:
+        print("  [%-8s] %-24s %s" % (r["mode"], r["label"], r["path"]))
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="metaspace", description="MetaSpace — a provable safety membrane.")
     p.add_argument("--version", action="version", version="metaspace %s" % __version__)
@@ -474,6 +493,14 @@ def build_parser():
     off.add_argument("--project", metavar="DIR", default=None)
     off.add_argument("--purge", action="store_true", help="also delete the installed constitution")
     off.set_defaults(fn=cmd_off)
+
+    ui = sub.add_parser("ui", help="open the control panel (localhost web UI)")
+    ui.add_argument("--port", type=int, default=0, help="port (default: a free one)")
+    ui.add_argument("--no-browser", action="store_true", help="don't auto-open the browser")
+    ui.set_defaults(fn=cmd_ui)
+
+    pr = sub.add_parser("projects", help="list working directories with their own membrane config")
+    pr.set_defaults(fn=cmd_projects)
     return p
 
 
