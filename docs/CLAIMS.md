@@ -24,6 +24,13 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Confining a process that already started is the OS substrate's job, not the agent hook's | [SCOPE-LIMIT] | `SECURITY.md`, `docs/THREAT_FRIENDLY_FIRE.md` §9 | — |
 | Research prototype / MVP (TRL ~3–4); no third-party security audit yet | [SCOPE-LIMIT] | `SECURITY.md` | — |
 
+## Authenticity-gate claims (F7)
+| Claim | Type | Backed by | Verified |
+|---|---|---|---|
+| `metaspace verify` tells a genuine program from AI slop by its observed effects, not its output (HOLLOW / HIDDEN-EFFECT / CONSISTENT) | [PROVEN] | `run_slopgate_proof` (F7) | Win + Linux (2026-07-13) |
+| The gate runs the target safely: writes go to a sandbox, network/subprocess are recorded and blocked | [PROVEN] | `run_slopgate_proof` + `core/verify.py` | Win + Linux (2026-07-13) |
+| It detects the claims-vs-effects gap for Python programs — NOT general correctness or quality (Rice's theorem) | [SCOPE-LIMIT] | `core/verify.py` docstring | — |
+
 ## Control-panel claims (F4 — filled as each work item lands)
 | Claim | Type | Backed by | Verified |
 |---|---|---|---|

@@ -428,6 +428,42 @@ def cmd_off(args):
     return 0
 
 
+def cmd_verify(args):
+    """Authenticity gate: run an AI-written Python program under the recording membrane and check
+    whether it actually does what it claims — real effects vs. claimed effects."""
+    import tempfile
+    import shutil
+    from core import verify
+    if not os.path.exists(args.target):
+        sys.stderr.write("file not found: %s\n" % args.target)
+        return 2
+    expect = []
+    for x in (args.expect or []):
+        expect += [e.strip() for e in x.split(",") if e.strip()]
+    sandbox = tempfile.mkdtemp(prefix="ms_verify_")
+    try:
+        effects, _out, err = verify.run_and_record(os.path.abspath(args.target), sandbox)
+    finally:
+        shutil.rmtree(sandbox, ignore_errors=True)
+    rep = verify.analyze(effects, expect)
+    print("=" * 66)
+    print("  MetaSpace — authenticity gate (does it really do what it claims?)")
+    print("=" * 66)
+    print("  target    :", args.target)
+    if expect:
+        print("  claims to :", ", ".join(expect))
+    print("  observed  :", ", ".join(rep["observed"]) or "(no real effects)")
+    for e in rep["effects"][:8]:
+        print("     - %-16s %s" % (e["kind"] + "/" + e["mode"], e["target"]))
+    if err:
+        print("  (program raised: %s)" % err)
+    print("-" * 66)
+    print("  VERDICT:", rep["verdict"])
+    print("  " + rep["headline"])
+    print("=" * 66)
+    return 0 if rep["verdict"] in ("CONSISTENT", "OK", "NO-EFFECTS") else 1
+
+
 def _track(event):
     """Opt-in, privacy-first usage signal (default OFF; no-op unless the user opted in).
     Never on the enforcement hot path — only coarse CLI actions. Never fatal."""
@@ -533,6 +569,12 @@ def build_parser():
     tel = sub.add_parser("telemetry", help="opt in/out of anonymous usage stats (off by default)")
     tel.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
     tel.set_defaults(fn=cmd_telemetry)
+
+    vf = sub.add_parser("verify", help="authenticity gate: does an AI-written program really do what it claims?")
+    vf.add_argument("target", help="a Python file to run under the recording membrane")
+    vf.add_argument("--expect", action="append", metavar="KIND",
+                    help="an effect it should produce: writes | network | subprocess (repeatable or comma-separated)")
+    vf.set_defaults(fn=cmd_verify)
     return p
 
 

@@ -7,6 +7,15 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **`metaspace verify` — authenticity gate (the "slop" detector).** Point it at an AI-written
+  Python program: it runs the program under a recording membrane (writes redirected to a throwaway
+  sandbox; network and subprocess recorded and blocked — nothing dangerous happens) and reports
+  whether it actually does what it claims. Catches the commonest AI slop — code that prints "saved
+  1,000,000 rows!" but writes nothing (**HOLLOW**) — and a program that phones home to an undeclared
+  host (**HIDDEN-EFFECT**), while a genuine program reads **CONSISTENT**. The verdict comes from the
+  observed effect-trace, so a program can't fake it with a success message. `core/verify.py`; proven
+  by `run_slopgate_proof.py` (P-SLOPGATE). Honest scope: the claims-vs-effects gap for Python, not
+  general correctness.
 - **Command picker + info list in the panel:** the "Allowed commands" field offers type-to-search
   autocomplete from a curated catalogue of common developer commands, and a "What can these do?"
   modal explains every command in one or two sentences (alphabetical, filterable). Backed by
