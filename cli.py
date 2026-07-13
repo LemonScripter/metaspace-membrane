@@ -254,6 +254,7 @@ def cmd_install(args):
         print("          when satisfied, turn on blocking with:  metaspace enforce"
               + ("" if scope == "user" else " --project " + base))
     print("  Remove it any time with:  metaspace off" + ("" if scope == "user" else " --project " + base))
+    _track("install")
     return 0
 
 
@@ -285,6 +286,7 @@ def _set_mode(project, mode):
     settings["env"] = env
     with open(settings_path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
+    _track(mode)
     print("MetaSpace mode -> %s (%s-level). Restart Claude Code to apply." % (mode, scope))
     return 0
 
@@ -418,6 +420,7 @@ def cmd_off(args):
             shutil.rmtree(ms_dir, ignore_errors=True)
 
     if changed:
+        _track("off")
         print("MetaSpace Warden removed (%s-level)%s." % (scope, " + constitution purged" if args.purge else ""))
         print("  Restart Claude Code to apply.")
     else:
@@ -425,8 +428,33 @@ def cmd_off(args):
     return 0
 
 
+def _track(event):
+    """Opt-in, privacy-first usage signal (default OFF; no-op unless the user opted in).
+    Never on the enforcement hot path — only coarse CLI actions. Never fatal."""
+    try:
+        from core import telemetry
+        telemetry.record(event)
+    except Exception:
+        pass
+
+
+def cmd_telemetry(args):
+    from core import telemetry
+    if args.action == "on":
+        telemetry.set_consent(True)
+        print("Anonymous usage stats: ON. Never any code, paths, or personal data — only which")
+        print("actions happened, tied to a random id you can forget any time with: metaspace telemetry off")
+    elif args.action == "off":
+        telemetry.set_consent(False)
+        print("Anonymous usage stats: OFF.")
+    else:
+        print("Anonymous usage stats:", "ON" if telemetry.get_consent() else "OFF (default)")
+    return 0
+
+
 def cmd_ui(args):
     """Open the control panel: a localhost web UI to configure the membrane per working directory."""
+    _track("ui_open")
     from products.ai_membrane import ui_server
     ui_server.serve(port=args.port, open_browser=not args.no_browser)
     return 0
@@ -501,6 +529,10 @@ def build_parser():
 
     pr = sub.add_parser("projects", help="list working directories with their own membrane config")
     pr.set_defaults(fn=cmd_projects)
+
+    tel = sub.add_parser("telemetry", help="opt in/out of anonymous usage stats (off by default)")
+    tel.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
+    tel.set_defaults(fn=cmd_telemetry)
     return p
 
 

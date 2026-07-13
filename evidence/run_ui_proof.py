@@ -21,6 +21,7 @@ import threading
 import subprocess
 import urllib.request
 import urllib.error
+import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -110,6 +111,29 @@ def main():
     # the configured constitution actually drives the real hook
     check(drive_hook(projX, "git status") == 2, "UI-configured project BLOCKS `git status` (not allowlisted)")
     check(drive_hook(projX, "python build.py") == 0, "UI-configured project ALLOWS `python build.py`")
+
+    # ---- edit an existing project: fetch fields, widen the allowlist, confirm the hook reflects it ----
+    code, out = req(base, "GET", "/api/project?path=" + urllib.parse.quote(projX), token=token)
+    check(code == 200 and "python" in json.loads(out)["fields"].get("shell_allow", []),
+          "GET /api/project returns the current fields (for editing)")
+    req(base, "POST", "/api/project", token=token, origin=good_origin,
+        body={"path": projX, "label": "X", "mode": "enforce",
+              "fields": {"shell_allow": ["python", "git", "ls", "echo"]}})
+    check(drive_hook(projX, "git status") == 0, "after editing the allowlist, `git status` is now ALLOWED")
+
+    # ---- report endpoint returns a summary ----
+    code, out = req(base, "GET", "/api/report?path=" + urllib.parse.quote(projX), token=token)
+    rep = json.loads(out)
+    check(code == 200 and all(k in rep for k in ("allow", "blocked", "would_block")),
+          "GET /api/report returns an activity summary")
+
+    # ---- telemetry: default off, togglable from the panel ----
+    check(json.loads(req(base, "GET", "/api/telemetry", token=token)[1]).get("consent") is False,
+          "telemetry consent defaults to OFF")
+    req(base, "POST", "/api/telemetry", token=token, origin=good_origin, body={"consent": True})
+    check(json.loads(req(base, "GET", "/api/telemetry", token=token)[1]).get("consent") is True,
+          "telemetry consent can be toggled on from the panel")
+    req(base, "POST", "/api/telemetry", token=token, origin=good_origin, body={"consent": False})
 
     code, html = req(base, "GET", "/?token=" + token)
     check(code == 200 and "MetaSpace Warden" in html, "the panel page loads with a valid token")

@@ -31,6 +31,8 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | `metaspace ui` (localhost panel) configures the real membrane per project; the change actually drives the hook | [PROVEN] | `run_ui_proof` (F4-2) | Win + Linux (2026-07-13) |
 | The panel defends itself: no-token → 403, and a cross-origin request (a malicious website) → 403 — a web page cannot reconfigure the membrane | [PROVEN] | `run_ui_proof` (F4-2) | Win + Linux (2026-07-13) |
 | The friendly UI fields always render a constitution containing the self-protection deny (no UI input can produce a disable-able config) | [PROVEN] | `core/bio_fields.py` (via `run_ui_proof`) | Win + Linux (2026-07-13) |
+| The panel can edit an existing folder's rules (change takes effect on the hook) and show per-folder activity | [PROVEN] | `run_ui_proof` (F4-3) | Win + Linux (2026-07-13) |
+| Usage telemetry is off by default, opt-in, anonymous, never stores code/paths/PII, and is never on the enforcement hot path | [PROVEN] | `run_telemetry_proof` (F4-3) | Win + Linux (2026-07-13) |
 
 ## Install claims (F1 — filled as each work item lands)
 | Claim | Type | Backed by | Verified |

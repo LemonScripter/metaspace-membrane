@@ -32,6 +32,38 @@ def _page(token):
     return PAGE_HTML.replace("__TOKEN__", token)
 
 
+def _report_summary(project):
+    """Summarize a project's session audit (what the membrane allowed / blocked / would-block).
+    Runs against the project-local `.metaspace/session_audit.jsonl` the hook writes."""
+    audit = os.path.join(project, ".metaspace", "session_audit.jsonl")
+    allow = blocked = would = 0
+    examples = []
+    if project and os.path.exists(audit):
+        try:
+            with open(audit, encoding="utf-8") as fh:
+                for ln in fh:
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        r = json.loads(ln)
+                    except Exception:
+                        continue
+                    if r.get("would_block"):
+                        would += 1
+                        examples.append({"type": "would", "kind": r.get("kind"),
+                                         "target": str(r.get("target"))[:80]})
+                    elif r.get("decision") == "DENY":
+                        blocked += 1
+                        examples.append({"type": "blocked", "kind": r.get("kind"),
+                                         "target": str(r.get("target"))[:80]})
+                    elif r.get("decision") == "ALLOW":
+                        allow += 1
+        except Exception:
+            pass
+    return {"allow": allow, "blocked": blocked, "would_block": would, "examples": examples[-8:]}
+
+
 def make_handler(token, port):
     from core import project_config, bio_fields
 
@@ -90,6 +122,15 @@ def make_handler(token, port):
                 p = urllib.parse.unquote(m.group(1)) if m else ""
                 text = project_config.read_bio(p) or ""
                 return self._json(200, {"path": p, "fields": bio_fields.fields_from_bio(text)})
+            if path == "/api/report":
+                import urllib.parse
+                m = re.search(r"[?&]path=([^&]+)", self.path)
+                p = urllib.parse.unquote(m.group(1)) if m else ""
+                return self._json(200, _report_summary(p))
+            if path == "/api/telemetry":
+                from core import telemetry
+                st = telemetry.state()
+                return self._json(200, {"consent": bool(st.get("consent")), "has_id": bool(st.get("id"))})
             return self._send(404, "not found", "text/plain")
 
         # ---- POST: create/update ----
@@ -113,6 +154,10 @@ def make_handler(token, port):
                 ok = project_config.set_mode((b.get("path") or "").strip(),
                                              "enforce" if b.get("mode") == "enforce" else "dryrun")
                 return self._json(200 if ok else 404, {"ok": ok})
+            if path == "/api/telemetry":
+                from core import telemetry
+                telemetry.set_consent(bool(b.get("consent")))
+                return self._json(200, {"ok": True, "consent": telemetry.get_consent()})
             return self._send(404, "not found", "text/plain")
 
         # ---- DELETE: remove ----
@@ -194,6 +239,7 @@ input[type=text]{width:100%;background:#0e1526;color:var(--fg);border:1px solid 
 <div id="list"></div>
 <div style="margin:14px 0"><button class="primary" onclick="showForm()">➕ Add a working directory</button></div>
 <div id="form" class="card hidden"></div>
+<div id="consent" class="card"></div>
 <p class="foot">Settings are stored under <code>~/.claude</code> — outside your projects, so a
 prompt-injected agent cannot change or disable them. Restart Claude Code after changes.</p>
 </div>
@@ -207,30 +253,45 @@ function renderChips(id,arr){document.getElementById(id).innerHTML=arr.map(v=>ch
 function mkChipField(id,arr){window['arr_'+id]=arr.slice();window['rm_'+id]=v=>{window['arr_'+id]=window['arr_'+id].filter(x=>x!==v);renderChips(id,window['arr_'+id])};
  setTimeout(()=>renderChips(id,window['arr_'+id]),0);
  return `<div class="chips" id="${id}"></div><input type="text" placeholder="type and press Enter to add" onkeydown="if(event.key==='Enter'){event.preventDefault();var v=this.value.trim();if(v){window['arr_'+'${id}'].push(v);renderChips('${id}',window['arr_'+'${id}']);this.value=''}}">`}
+function esc(s){return (s||'').replace(/'/g,"")}
 async function load(){
  const d=await api('GET','/api/default');DEF=d.fields;
+ const t=await api('GET','/api/telemetry');
  const r=await api('GET','/api/projects');
  document.getElementById('list').innerHTML = (r.projects.length?'':'<div class="card"><b>No working directories yet.</b><div class="hint">Add the folder where you run Claude Code.</div></div>')+
-  r.projects.map(p=>`<div class="card"><div class="row"><div><b>${p.label}</b> <span class="badge ${p.mode}">${p.mode==='enforce'?'Enforcing':'Observing'}</span><div class="path">${p.path}</div></div>
-   <div><button onclick="toggleMode('${p.path.replace(/'/g,"")}','${p.mode}')">${p.mode==='enforce'?'Switch to Observe':'Enforce now'}</button>
-   <button class="danger ghost" onclick="del('${p.path.replace(/'/g,"")}')">Remove</button></div></div></div>`).join('');
+  r.projects.map(p=>{const pe=esc(p.path);return `<div class="card"><div class="row"><div><b>${p.label}</b> <span class="badge ${p.mode}">${p.mode==='enforce'?'Enforcing':'Observing'}</span><div class="path">${p.path}</div></div>
+   <div><button onclick="toggleMode('${pe}','${p.mode}')">${p.mode==='enforce'?'Observe':'Enforce'}</button>
+   <button onclick="editProject('${pe}','${esc(p.label)}','${p.mode}')">Edit</button>
+   <button onclick="showReport('${pe}')">Activity</button>
+   <button class="danger ghost" onclick="del('${pe}')">Remove</button></div></div></div>`}).join('');
+ document.getElementById('consent').innerHTML=`<label style="display:flex;gap:9px;align-items:center;cursor:pointer;color:var(--fg)"><input type="checkbox" ${t.consent?'checked':''} onchange="setConsent(this.checked)"> Share anonymous usage stats <span class="hint">— off by default; never any code, paths, or personal data</span></label>`;
 }
+async function setConsent(on){await api('POST','/api/telemetry',{consent:on})}
 async function toggleMode(path,cur){await api('POST','/api/mode',{path,mode:cur==='enforce'?'dryrun':'enforce'});load()}
 async function del(path){if(confirm('Remove the membrane config for this folder?')){await api('DELETE','/api/project',{path});load()}}
-function showForm(){
+async function showReport(path){
+ const r=await api('GET','/api/report?path='+encodeURIComponent(path));
+ alert('Activity for this folder:\n\nAllowed: '+r.allow+'\nBlocked: '+r.blocked+'\nWould-block (observe): '+r.would_block+(r.examples.length?'\n\nRecent:\n'+r.examples.map(e=>' • ['+e.type+'] '+(e.kind||'')+' '+(e.target||'')).join('\n'):'\n\n(no activity yet — run a Claude Code session in this folder)'));
+}
+async function editProject(path,label,mode){
+ const r=await api('GET','/api/project?path='+encodeURIComponent(path));
+ showForm({path,label,mode,fields:r.fields});
+}
+function showForm(ex){
+ ex=ex||{};const editing=!!ex.path;const F=ex.fields||DEF;
  const f=document.getElementById('form');f.classList.remove('hidden');
- f.innerHTML=`<h3 style="margin:2px 0 2px">New working directory</h3>
+ f.innerHTML=`<h3 style="margin:2px 0 2px">${editing?'Edit':'New'} working directory</h3>
   <label>Folder path <span class="hint">— where you run Claude Code</span></label>
-  <input type="text" id="path" placeholder="C:/Users/you/my-project">
-  <label>Name (optional)</label><input type="text" id="label" placeholder="my-project">
-  <label>Mode</label><div class="modes">
-   <label><input type="radio" name="mode" value="dryrun" checked> Observe (warn only, never blocks — good for the first session)</label></div>
-   <div class="modes"><label><input type="radio" name="mode" value="enforce"> Enforce (block anything outside the rules)</label></div>
+  <input type="text" id="path" placeholder="C:/Users/you/my-project" value="${esc(ex.path||'')}" ${editing?'readonly':''}>
+  <label>Name (optional)</label><input type="text" id="label" placeholder="my-project" value="${esc(ex.label||'')}">
+  <label>Mode</label>
+   <div class="modes"><label><input type="radio" name="mode" value="dryrun" ${ex.mode==='enforce'?'':'checked'}> Observe (warn only, never blocks — good for the first session)</label></div>
+   <div class="modes"><label><input type="radio" name="mode" value="enforce" ${ex.mode==='enforce'?'checked':''}> Enforce (block anything outside the rules)</label></div>
   <label>Where can the agent write?</label>
   <div class="modes"><label><input type="checkbox" id="wproj" checked> This project folder only (recommended)</label></div>
-  <label>Which sites may it reach?</label>${mkChipField('net',DEF.network||[])}
-  <label>Allowed commands</label>${mkChipField('allow',DEF.shell_allow||[])}
-  <label>Always-blocked command patterns</label>${mkChipField('deny',DEF.shell_deny||[])}
+  <label>Which sites may it reach?</label>${mkChipField('net',F.network||[])}
+  <label>Allowed commands</label>${mkChipField('allow',F.shell_allow||[])}
+  <label>Always-blocked command patterns</label>${mkChipField('deny',F.shell_deny||[])}
   <div style="margin-top:16px"><button class="primary" onclick="save()">Save</button>
    <button class="ghost" onclick="document.getElementById('form').classList.add('hidden')">Cancel</button></div>`;
 }

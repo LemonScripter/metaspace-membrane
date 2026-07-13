@@ -7,6 +7,11 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **Panel polish + opt-in telemetry:** edit an existing folder's rules in the panel, view
+  per-folder activity (allowed / blocked / would-block), and toggle anonymous usage stats.
+  Telemetry is **off by default, anonymous, never stores code / paths / personal data, and is
+  never on the enforcement hot path** (`core/telemetry.py`; `metaspace telemetry on|off|status`).
+  Proven by `run_telemetry_proof.py` (P-TELEMETRY) and the extended `run_ui_proof.py`.
 - **`metaspace ui`** — a localhost control panel to configure the membrane per working directory:
   pick a folder, set what the agent may write / reach / run, choose Observe or Enforce. Zero-dep
   (stdlib `http.server`); it binds `127.0.0.1`, and a per-launch token + Origin/Host checks defend
