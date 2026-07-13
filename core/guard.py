@@ -122,6 +122,16 @@ class Guard:
 
     # --- the decision core ---
     def check(self, kind: str, mode: str, target: str = None) -> bool:
+        # FILESYSTEM write deny-override: a path listed under `FILESYSTEM deny` is blocked even
+        # when an allow-scope would match it. Used for self-protection — the agent must never
+        # write the membrane's own config, even if the granted write scope (e.g. the project
+        # root) happens to be a parent of it.
+        if kind == "FILESYSTEM" and mode == "write" and target is not None:
+            deny_scopes = self.allowed.get(("FILESYSTEM", "deny"))
+            if deny_scopes and self._scope_ok(target, deny_scopes):
+                reason = f"FILESYSTEM/write '{target}' is explicitly denied (self-protection: {deny_scopes})"
+                self._log(kind, mode, target, False, reason)
+                raise ConstitutionViolation(f"[MEMBRANE BLOCK] {kind}/{mode} target={target} :: {reason}")
         scopes = self.allowed.get((kind, mode))
         if scopes is None:
             allow, reason = False, f"{kind}/{mode} not in the constitution (deny-by-default)"

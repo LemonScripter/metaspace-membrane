@@ -13,6 +13,9 @@ CELL AgentSession {
     FILESYSTEM write "{{PROJECT_ROOT}}/**";
     # read anywhere (so the agent can study any codebase)
     FILESYSTEM read  "**";
+    # self-protection: never let the agent WRITE the membrane's own config, even if the granted
+    # write scope is a parent of it (e.g. Claude Code opened at the home directory). Deny wins.
+    FILESYSTEM deny  "{{CLAUDE_HOME}}/**";
     # outbound network only to allowed hosts (edit for your project)
     NETWORK    out   "docs.anthropic.com", "docs.claude.com";
     # everything else: DENY (deny-by-default)

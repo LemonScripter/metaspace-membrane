@@ -41,6 +41,18 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 > membrane and never with it. See **[`docs/THREAT_FRIENDLY_FIRE.md`](docs/THREAT_FRIENDLY_FIRE.md)**
 > · reproduce with `python evidence/run_friendly_fire_proof.py`.
 
+## Install & try (60 seconds)
+
+```bash
+pip install "git+https://github.com/LemonScripter/metaspace-membrane"
+metaspace install     # user-level, starts in dry-run (observe, no blocking)
+metaspace demo        # live self-test: watch it block the attack, then `metaspace enforce`
+```
+
+Requires **Python 3.10+** (the hook has zero third-party dependencies — nothing else to install).
+The membrane installs **outside any project's write scope**, so a prompt-injected agent cannot
+disable it. Full guide + honest scope: **[`docs/INSTALL.md`](docs/INSTALL.md)**.
+
 ---
 
 ## Two products, one engine

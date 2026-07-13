@@ -44,6 +44,13 @@ sys.path.insert(0, REPO_ROOT)
 PROJECT_ROOT = (os.environ.get("METASPACE_PROJECT_ROOT")
                 or os.environ.get("CLAUDE_PROJECT_DIR")   # set by Claude Code (plugin/hook)
                 or os.getcwd()).replace("\\", "/")
+# the Claude config dir — substituted into the constitution so it can deny writes to its own
+# config (self-protection), independent of where the project root happens to be.
+CLAUDE_HOME = os.path.expanduser("~/.claude").replace("\\", "/")
+# enforcement mode: "dryrun" (observe: record + warn what WOULD be blocked, but allow it) or
+# "enforce" (block). Fresh installs start in dryrun so the membrane never over-blocks on the
+# first session; the user reviews, then runs `metaspace enforce`. Default enforce if unset.
+MODE = os.environ.get("METASPACE_MODE", "enforce").strip().lower()
 BIO_PATH = os.environ.get("METASPACE_SESSION_BIO",
                           os.path.join(HERE, "session.constitution.bio"))
 AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
@@ -115,7 +122,7 @@ def main():
 
     try:
         with open(BIO_PATH, encoding="utf-8") as fh:
-            bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT)
+            bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT).replace("{{CLAUDE_HOME}}", CLAUDE_HOME)
         from core.guard import Guard
         # the hook is the single audit authority (it logs with tool + kind + target); the guard
         # must not double-log to the same file -> audit_path=False (in-memory decisions only).
@@ -149,6 +156,12 @@ def main():
     if ok:
         allow(f"{tool} {kind}/{mode}: {str(target)[:60]}", tool=tool, kind=kind, mode=mode, target=tgt)
     else:
+        if MODE == "dryrun":
+            # observe-only: record what WOULD be blocked and warn loudly, but let it through so
+            # the first session is never over-blocked. `metaspace enforce` turns on blocking.
+            sys.stderr.write(f"[MEMBRANE DRY-RUN] would block ({kind}/{mode}): {reason}\n")
+            allow(f"DRY-RUN would-block ({kind}/{mode}): {reason}",
+                  tool=tool, kind=kind, mode=mode, target=tgt, would_block=True)
         deny(f"{tool} blocked ({kind}/{mode}): {reason}", tool=tool, kind=kind, mode=mode, target=tgt)
 
 
