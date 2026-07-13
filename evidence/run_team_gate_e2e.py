@@ -15,8 +15,8 @@ This proof drives the REAL `metaspace` CLI through exactly what CI would do:
   3. someone broadens it after ratifying -> gate exits non-zero (CI RED: TAMPERED)
 
 It needs no hosted CI: the gate is a local command, and its exit code is the build signal.
-(The shipped .github workflow just runs this same command in Actions; it cannot be self-run
-on this repo because Actions billing is disabled — an honest, stated limitation.)
+(GitHub Actions is disabled on this repo, so there is no hosted-CI badge; the gate is verified
+locally and on real Linux instead — an honest, stated limitation.)
 
 Run:  python evidence/run_team_gate_e2e.py     (exit 0 if the gate behaves as a CI gate must)
 """

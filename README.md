@@ -219,8 +219,8 @@ repos:
 
 An unratified constitution, or one widened after ratifying (→ TAMPERED), fails the build.
 `python evidence/run_team_gate_e2e.py` proves the whole flow with the real CLI. (Honest note:
-the hosted Actions run is not self-verified on *this* repo — Actions billing is disabled here —
-so there is no green-badge claim; the gate logic is proven locally and cross-OS.)
+there is no hosted-CI badge — GitHub Actions is disabled on this repo — so the gate logic is
+proven locally and cross-OS instead, on Windows and real Linux.)
 
 ---
 
@@ -325,3 +325,5 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
 (Proprietary). An open-core move to a Business Source License is intended and drafted for IP
 counsel in [`docs/LICENSE.BSL.draft.md`](docs/LICENSE.BSL.draft.md) — a non-binding draft; the
 `LICENSE` above governs until it is finalized.
+
+<sub>Designed and authored by Szőke László-Ferenc, with AI pair-programming assistance (Claude).</sub>

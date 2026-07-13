@@ -52,9 +52,9 @@ proof (P-SELFPROTECT) must show a fully-deceived agent fails on **all** disable 
   the proof fails.
 - **The runner is the gate, not prose:** `python run_proofs.py` stays green; docs cannot claim
   what the runner does not show.
-- **CI:** extend the M4 team-gate workflow to run the whole suite + install proofs; red = no
-  merge. (Honest note, per I-25: hosted Actions is billing-blocked on this repo, so no green-badge
-  claim; self-verified locally + Tokyo; the workflow is adoptable on forks.)
+- **CI:** the suite is the gate — `python run_proofs.py` must stay green. (Honest note: GitHub
+  Actions is disabled on this repo; the suite is verified locally on Windows + real Linux (Tokyo)
+  every change, not by a hosted badge. See DECISIONS I-35.)
 
 ### New proofs the install work requires (no-mock)
 | Proof | Proves (falsifiably) |
