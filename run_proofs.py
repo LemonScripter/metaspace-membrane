@@ -40,6 +40,7 @@ PROOFS = [
     ("Telemetry: opt-in, anonymous, no PII, default off", "evidence/run_telemetry_proof.py"),
     ("Command catalogue: complete, alphabetical, self-explaining (panel)", "evidence/run_commands_proof.py"),
     ("Authenticity gate: tells a real program from AI slop by its effects", "evidence/run_slopgate_proof.py"),
+    ("Offline licence: a real Ed25519 gate (tamper/forge/expiry caught)", "evidence/run_license_proof.py"),
     ("`metaspace demo` really blocks the attack (live self-test)", "evidence/run_demo_proof.py"),
     ("Uninstall: `metaspace off` clean, idempotent, agent-unreachable", "evidence/run_uninstall_proof.py"),
     ("Version parity across pyproject / plugin.json / CLI", "evidence/run_version_proof.py"),

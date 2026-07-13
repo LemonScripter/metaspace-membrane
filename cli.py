@@ -508,6 +508,72 @@ def cmd_projects(args):
     return 0
 
 
+def cmd_license(args):
+    """Show, install, or remove a licence key. Verified fully offline (no phone-home).
+
+    Open-core: the Warden membrane is free; a licence unlocks paid tiers. As of this release
+    nothing is gated yet — everything runs free — but the entitlement is real and inspectable.
+    """
+    from core import license as lic
+    if not lic.available():
+        sys.stderr.write("Licences need the crypto extra:  pip install metaspace-membrane[pro]\n")
+        return 2
+    if getattr(args, "remove", False):
+        print("Licence removed; back to the free tier." if lic.remove_license()
+              else "No licence installed.")
+        return 0
+    if getattr(args, "key", None):
+        payload = lic.install_license(args.key)
+        if not payload:
+            sys.stderr.write("Invalid or expired licence key — not installed.\n")
+            return 1
+        print("Licence installed. Tier: %s  (%s%s)" % (
+            payload.get("tier", "?"), payload.get("email", "?"),
+            ", expires " + payload["expires"] if payload.get("expires") else ""))
+        return 0
+    cur = lic.current()
+    tier = cur.get("tier", "free")
+    if tier == "free":
+        print("Tier: FREE — the full Warden membrane is enabled. No paid feature is gated yet.")
+    else:
+        print("Tier: %s  (%s%s)" % (tier.upper(), cur.get("email", "?"),
+              ", expires " + cur["expires"] if cur.get("expires") else ""))
+    return 0
+
+
+def cmd_keygen(args):
+    """Vendor tool: generate an Ed25519 signing keypair for issuing licences."""
+    from core import license as lic
+    if not lic.available():
+        sys.stderr.write("Needs the crypto extra:  pip install metaspace-membrane[pro]\n")
+        return 2
+    priv, pub = lic.generate_keypair()
+    print("PRIVATE key (keep SECRET — this issues licences; never commit it):")
+    print("  " + priv)
+    print("PUBLIC key (ship it — set METASPACE_LICENSE_PUBKEY or replace VENDOR_PUBLIC_KEY):")
+    print("  " + pub)
+    return 0
+
+
+def cmd_issue(args):
+    """Vendor tool: sign a licence key with the private key (e.g. after a purchase)."""
+    from core import license as lic
+    if not lic.available():
+        sys.stderr.write("Needs the crypto extra:  pip install metaspace-membrane[pro]\n")
+        return 2
+    priv = args.priv or os.environ.get("METASPACE_LICENSE_PRIVKEY", "").strip()
+    if not priv:
+        sys.stderr.write("Provide the signing key via --priv or METASPACE_LICENSE_PRIVKEY.\n")
+        return 2
+    try:
+        key = lic.issue(priv, args.email, tier=args.tier, days=args.days)
+    except Exception as e:
+        sys.stderr.write("Could not issue: %s\n" % e)
+        return 1
+    print(key)
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="metaspace", description="MetaSpace — a provable safety membrane.")
     p.add_argument("--version", action="version", version="metaspace %s" % __version__)
@@ -575,6 +641,21 @@ def build_parser():
     vf.add_argument("--expect", action="append", metavar="KIND",
                     help="an effect it should produce: writes | network | subprocess (repeatable or comma-separated)")
     vf.set_defaults(fn=cmd_verify)
+
+    lc = sub.add_parser("license", help="show / install / remove a licence key (offline, no phone-home)")
+    lc.add_argument("key", nargs="?", default=None, help="a licence key to install (omit to show status)")
+    lc.add_argument("--remove", action="store_true", help="remove the installed licence (back to free)")
+    lc.set_defaults(fn=cmd_license)
+
+    kg = sub.add_parser("keygen", help="vendor: generate an Ed25519 keypair for issuing licences")
+    kg.set_defaults(fn=cmd_keygen)
+
+    iss = sub.add_parser("issue", help="vendor: sign a licence key with the private key")
+    iss.add_argument("email", help="the licensee's email")
+    iss.add_argument("--priv", default=None, help="signing key (or set METASPACE_LICENSE_PRIVKEY)")
+    iss.add_argument("--tier", default="pro")
+    iss.add_argument("--days", type=int, default=365, help="validity in days (0 = perpetual)")
+    iss.set_defaults(fn=cmd_issue)
     return p
 
 

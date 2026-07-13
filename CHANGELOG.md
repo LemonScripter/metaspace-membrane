@@ -7,6 +7,15 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **Offline licence layer (open-core monetisation infrastructure) — `metaspace license` /
+  `keygen` / `issue`.** Paid tiers are unlocked by an Ed25519-signed key verified **fully
+  offline** against an embedded vendor public key — no phone-home, works air-gapped. The free
+  Warden membrane stays **zero-dependency** (the licence crypto lives in the optional `[pro]`
+  extra and is never on the enforcement hot path). A licence is a soft entitlement gate, not a
+  security boundary. **Nothing is gated yet** — everything runs free — but the entitlement is
+  real: `is_pro()` exists and flipping one gate turns a feature Pro later. `core/license.py`;
+  proven by `run_license_proof.py` (P-LICENSE): a genuine key verifies, a tampered / forged /
+  expired key is rejected, and the safe default is the free tier.
 - **`metaspace verify` — authenticity gate (the "slop" detector).** Point it at an AI-written
   Python program: it runs the program under a recording membrane (writes redirected to a throwaway
   sandbox; network and subprocess recorded and blocked — nothing dangerous happens) and reports

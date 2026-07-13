@@ -16,7 +16,10 @@ keywords = ["security", "sandbox", "webassembly", "capability", "ai-safety", "gu
 dependencies = []
 
 [project.optional-dependencies]
-proofs = ["wasmtime>=13"]
+# The offline licence layer (paid tiers) verifies Ed25519-signed keys; the free Warden
+# membrane never loads it, so the runtime stays zero-dep.
+pro = ["cryptography>=41"]
+proofs = ["wasmtime>=13", "cryptography>=41"]
 
 [project.scripts]
 metaspace = "cli:main"

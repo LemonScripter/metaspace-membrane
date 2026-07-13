@@ -24,6 +24,13 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Confining a process that already started is the OS substrate's job, not the agent hook's | [SCOPE-LIMIT] | `SECURITY.md`, `docs/THREAT_FRIENDLY_FIRE.md` §9 | — |
 | Research prototype / MVP (TRL ~3–4); no third-party security audit yet | [SCOPE-LIMIT] | `SECURITY.md` | — |
 
+## Monetisation claims (F6 — open-core licence)
+| Claim | Type | Backed by | Verified |
+|---|---|---|---|
+| `metaspace license` is a real offline Ed25519 gate: only a correctly-signed, unexpired key from the right vendor verifies; tampered / forged / expired keys are rejected | [PROVEN] | `run_license_proof` (P-LICENSE) | Win + Linux (2026-07-14) |
+| The free Warden membrane stays zero-dependency; licence crypto is the optional `[pro]` extra and never on the enforcement hot path | [PROVEN] | `run_zerodep_proof` + `core/license.py` | Win + Linux |
+| A licence is a soft entitlement gate, not a security boundary; as of this release nothing is gated — every feature runs free | [SCOPE-LIMIT] | `core/license.py` docstring | — |
+
 ## Authenticity-gate claims (F7)
 | Claim | Type | Backed by | Verified |
 |---|---|---|---|
