@@ -35,6 +35,7 @@ PROOFS = [
     ("Install: user-level wiring, idempotent, installed hook blocks the attack", "evidence/run_install_proof.py"),
     ("Self-protection: a deceived agent cannot disable the membrane (worst case)", "evidence/run_selfprotect_proof.py"),
     ("Dry-run install then enforce (no over-blocking on first run)", "evidence/run_dryrun_mode_proof.py"),
+    ("Per-project constitutions (user-level, self-protected)", "evidence/run_project_config_proof.py"),
     ("`metaspace demo` really blocks the attack (live self-test)", "evidence/run_demo_proof.py"),
     ("Uninstall: `metaspace off` clean, idempotent, agent-unreachable", "evidence/run_uninstall_proof.py"),
     ("Version parity across pyproject / plugin.json / CLI", "evidence/run_version_proof.py"),

@@ -50,9 +50,10 @@ CLAUDE_HOME = os.path.expanduser("~/.claude").replace("\\", "/")
 # enforcement mode: "dryrun" (observe: record + warn what WOULD be blocked, but allow it) or
 # "enforce" (block). Fresh installs start in dryrun so the membrane never over-blocks on the
 # first session; the user reviews, then runs `metaspace enforce`. Default enforce if unset.
-MODE = os.environ.get("METASPACE_MODE", "enforce").strip().lower()
-BIO_PATH = os.environ.get("METASPACE_SESSION_BIO",
-                          os.path.join(HERE, "session.constitution.bio"))
+# These are DEFAULTS; a per-project constitution/mode (if configured via the UI) overrides them.
+DEFAULT_MODE = os.environ.get("METASPACE_MODE", "enforce").strip().lower()
+DEFAULT_BIO = os.environ.get("METASPACE_SESSION_BIO",
+                             os.path.join(HERE, "session.constitution.bio"))
 AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
                        os.path.join(PROJECT_ROOT, ".metaspace", "session_audit.jsonl"))
 
@@ -120,8 +121,17 @@ def main():
     tool = event.get("tool_name", "")
     tin = event.get("tool_input", {}) or {}
 
+    # resolve THIS project's constitution + mode (per-working-directory config, stored user-level
+    # under ~/.claude); fall back to the install defaults. Never fatal.
     try:
-        with open(BIO_PATH, encoding="utf-8") as fh:
+        from core import project_config
+        bio_path, enforce_mode = project_config.resolve(PROJECT_ROOT, DEFAULT_BIO, DEFAULT_MODE)
+        bio_path = bio_path or DEFAULT_BIO
+    except Exception:
+        bio_path, enforce_mode = DEFAULT_BIO, DEFAULT_MODE
+
+    try:
+        with open(bio_path, encoding="utf-8") as fh:
             bio = fh.read().replace("{{PROJECT_ROOT}}", PROJECT_ROOT).replace("{{CLAUDE_HOME}}", CLAUDE_HOME)
         from core.guard import Guard
         # the hook is the single audit authority (it logs with tool + kind + target); the guard
@@ -156,7 +166,7 @@ def main():
     if ok:
         allow(f"{tool} {kind}/{mode}: {str(target)[:60]}", tool=tool, kind=kind, mode=mode, target=tgt)
     else:
-        if MODE == "dryrun":
+        if enforce_mode == "dryrun":
             # observe-only: record what WOULD be blocked and warn loudly, but let it through so
             # the first session is never over-blocked. `metaspace enforce` turns on blocking.
             sys.stderr.write(f"[MEMBRANE DRY-RUN] would block ({kind}/{mode}): {reason}\n")

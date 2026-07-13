@@ -4,7 +4,14 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com); the project uses semantic versioning.
 Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membrane[proofs]`).
 
-## [Unreleased]
+## [Unreleased] — Warden control panel (F4, in progress)
+
+### Added
+- **Per-working-directory constitutions** (`core/project_config.py`): each working directory can
+  have its own constitution + enforcement mode, all stored user-level under `~/.claude/metaspace`
+  (registry + `projects/<hash>.bio`), so they stay outside any project's write scope —
+  self-protection preserved. The hook resolves the current project's config at runtime and falls
+  back to the install default. Proven by `run_project_config_proof.py` (P-PROJECT-RESOLVE).
 
 ## [0.2.0] — 2026-07-13 — Warden easy-install (F1)
 

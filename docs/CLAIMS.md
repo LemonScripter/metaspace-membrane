@@ -24,6 +24,11 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Confining a process that already started is the OS substrate's job, not the agent hook's | [SCOPE-LIMIT] | `SECURITY.md`, `docs/THREAT_FRIENDLY_FIRE.md` §9 | — |
 | Research prototype / MVP (TRL ~3–4); no third-party security audit yet | [SCOPE-LIMIT] | `SECURITY.md` | — |
 
+## Control-panel claims (F4 — filled as each work item lands)
+| Claim | Type | Backed by | Verified |
+|---|---|---|---|
+| Each working directory can have its own constitution + mode, all stored user-level (self-protected); the hook resolves per-project and falls back to the default | [PROVEN] | `run_project_config_proof` (F4-1) | Win + Linux (2026-07-13) |
+
 ## Install claims (F1 — filled as each work item lands)
 | Claim | Type | Backed by | Verified |
 |---|---|---|---|
