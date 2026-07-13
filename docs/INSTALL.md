@@ -10,6 +10,17 @@ with `python run_proofs.py`.
 
 ---
 
+## Requirements
+
+**Python 3.10+** is the only prerequisite. The Warden hook itself has **zero third-party
+dependencies** (standard library only), so there is nothing else to install — no build step, no
+native toolchain. Get Python from [python.org](https://python.org), or `brew install python` /
+`sudo apt install python3` / `winget install Python.Python.3`.
+
+*(A standalone, no-Python binary is a possible future convenience for Python-free environments;
+it is deliberately deferred — the Python path is the fastest runtime and keeps a single, proven
+decision core.)*
+
 ## Quickstart (recommended: CLI, user-level, dry-run first)
 
 ```bash
