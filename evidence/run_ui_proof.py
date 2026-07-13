@@ -52,14 +52,14 @@ def req(base, method, path, token=None, origin=None, body=None):
         headers["Content-Type"] = "application/json"
         data = json.dumps(body).encode("utf-8")
     r = urllib.request.Request(base + path, data=data, method=method, headers=headers)
-    for _ in range(20):
+    for _ in range(80):
         try:
             resp = urllib.request.urlopen(r, timeout=5)
             return resp.status, resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as e:
-            return e.code, e.read().decode("utf-8", "replace")
-        except urllib.error.URLError:
-            time.sleep(0.05)   # server thread not accepting yet — retry briefly
+            return e.code, e.read().decode("utf-8", "replace")   # a real HTTP status (e.g. 403)
+        except Exception:
+            time.sleep(0.05)   # server thread not ready / transient reset — retry briefly
     return 0, ""
 
 
@@ -82,6 +82,12 @@ def main():
     base = "http://127.0.0.1:%d" % port
     good_origin = "http://127.0.0.1:%d" % port
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+    # wait until the server is actually accepting requests before asserting anything
+    for _ in range(120):
+        if req(base, "GET", "/api/commands", token=token)[0] == 200:
+            break
+        time.sleep(0.03)
 
     print("=" * 74)
     print("  P-UI-API + P-UI-CSRF (real panel -> real hook; localhost self-defence)")
@@ -134,6 +140,10 @@ def main():
     check(json.loads(req(base, "GET", "/api/telemetry", token=token)[1]).get("consent") is True,
           "telemetry consent can be toggled on from the panel")
     req(base, "POST", "/api/telemetry", token=token, origin=good_origin, body={"consent": False})
+
+    # ---- command catalogue endpoint (panel type-to-search + info list) ----
+    check(len(json.loads(req(base, "GET", "/api/commands", token=token)[1]).get("commands", [])) >= 40,
+          "GET /api/commands serves the command catalogue")
 
     code, html = req(base, "GET", "/?token=" + token)
     check(code == 200 and "MetaSpace Warden" in html, "the panel page loads with a valid token")

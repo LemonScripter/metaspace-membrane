@@ -38,6 +38,7 @@ PROOFS = [
     ("Per-project constitutions (user-level, self-protected)", "evidence/run_project_config_proof.py"),
     ("Control panel: configures the real membrane + rejects cross-origin (UI)", "evidence/run_ui_proof.py"),
     ("Telemetry: opt-in, anonymous, no PII, default off", "evidence/run_telemetry_proof.py"),
+    ("Command catalogue: complete, alphabetical, self-explaining (panel)", "evidence/run_commands_proof.py"),
     ("`metaspace demo` really blocks the attack (live self-test)", "evidence/run_demo_proof.py"),
     ("Uninstall: `metaspace off` clean, idempotent, agent-unreachable", "evidence/run_uninstall_proof.py"),
     ("Version parity across pyproject / plugin.json / CLI", "evidence/run_version_proof.py"),

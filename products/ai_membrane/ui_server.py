@@ -116,6 +116,9 @@ def make_handler(token, port):
                 return self._json(200, {"projects": project_config.list_projects()})
             if path == "/api/default":
                 return self._json(200, {"fields": bio_fields.SAFE_DEFAULTS})
+            if path == "/api/commands":
+                from core import command_catalog
+                return self._json(200, {"commands": command_catalog.catalog()})
             if path == "/api/project":
                 m = re.search(r"[?&]path=([^&]+)", self.path)
                 import urllib.parse
@@ -240,6 +243,23 @@ input[type=text]{width:100%;background:#0e1526;color:var(--fg);border:1px solid 
 <div style="margin:14px 0"><button class="primary" onclick="showForm()">➕ Add a working directory</button></div>
 <div id="form" class="card hidden"></div>
 <div id="consent" class="card"></div>
+<datalist id="cmdlist"></datalist>
+<style>
+dialog.modal2{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--fg);max-width:580px;width:calc(100% - 40px);padding:16px 18px}
+dialog.modal2::backdrop{background:rgba(4,8,14,.62)}
+.m2head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.m2head b{font-size:15px}
+.mx2{background:none;border:0;color:var(--mut);font-size:15px;cursor:pointer}
+#cmdfilter{width:100%;background:#0e1526;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:10px}
+.cmdlist2{max-height:60vh;overflow:auto;display:flex;flex-direction:column}
+.cmdrow{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline}
+.cmdrow code{color:var(--warn);font-size:12.5px}.cmdrow span{color:var(--mut)}
+.cmdinfo-link{font-size:12px;color:var(--warn);text-decoration:none;margin-left:8px}
+</style>
+<dialog id="cmdinfo" class="modal2">
+  <div class="m2head"><b>What can these commands do?</b><button class="mx2" onclick="document.getElementById('cmdinfo').close()" aria-label="Close">✕</button></div>
+  <input id="cmdfilter" type="text" placeholder="filter commands…" oninput="renderCmdInfo(this.value)">
+  <div id="cmdlist2" class="cmdlist2"></div>
+</dialog>
 <p class="foot">Settings are stored under <code>~/.claude</code> — outside your projects, so a
 prompt-injected agent cannot change or disable them. Restart Claude Code after changes.</p>
 </div>
@@ -247,15 +267,24 @@ prompt-injected agent cannot change or disable them. Restart Claude Code after c
 const TOKEN="__TOKEN__";
 const H={'Content-Type':'application/json','X-MS-Token':TOKEN};
 const api=(m,u,b)=>fetch(u+(u.includes('?')?'&':'?')+'token='+TOKEN,{method:m,headers:H,body:b?JSON.stringify(b):undefined}).then(r=>r.json());
-let DEF={};
+let DEF={};let CMDS=[];
 function chip(v,on){return `<span class="chip">${v}<b onclick="${on}('${v.replace(/'/g,"")}')">✕</b></span>`}
 function renderChips(id,arr){document.getElementById(id).innerHTML=arr.map(v=>chip(v,'rm_'+id)).join('')}
 function mkChipField(id,arr){window['arr_'+id]=arr.slice();window['rm_'+id]=v=>{window['arr_'+id]=window['arr_'+id].filter(x=>x!==v);renderChips(id,window['arr_'+id])};
  setTimeout(()=>renderChips(id,window['arr_'+id]),0);
  return `<div class="chips" id="${id}"></div><input type="text" placeholder="type and press Enter to add" onkeydown="if(event.key==='Enter'){event.preventDefault();var v=this.value.trim();if(v){window['arr_'+'${id}'].push(v);renderChips('${id}',window['arr_'+'${id}']);this.value=''}}">`}
+function mkCmdField(id,arr){window['arr_'+id]=arr.slice();window['rm_'+id]=v=>{window['arr_'+id]=window['arr_'+id].filter(x=>x!==v);renderChips(id,window['arr_'+id])};
+ setTimeout(()=>renderChips(id,window['arr_'+id]),0);
+ return `<div class="chips" id="${id}"></div><input type="text" list="cmdlist" placeholder="type to search commands, Enter to add" onkeydown="if(event.key==='Enter'){event.preventDefault();var v=this.value.trim();if(v){window['arr_'+'${id}'].push(v);renderChips('${id}',window['arr_'+'${id}']);this.value=''}}"><a href="#" class="cmdinfo-link" onclick="event.preventDefault();openCmdInfo()">What can these do?</a>`}
+function openCmdInfo(){renderCmdInfo('');var d=document.getElementById('cmdinfo');if(d.showModal)d.showModal();}
+function renderCmdInfo(q){q=(q||'').toLowerCase();
+ document.getElementById('cmdlist2').innerHTML=CMDS.filter(c=>c.name.indexOf(q)>=0||c.desc.toLowerCase().indexOf(q)>=0)
+  .map(c=>`<div class="cmdrow"><code>${c.name}</code><span>${c.desc}</span></div>`).join('')||'<div class="hint">No matching command.</div>';}
 function esc(s){return (s||'').replace(/'/g,"")}
 async function load(){
  const d=await api('GET','/api/default');DEF=d.fields;
+ const cc=await api('GET','/api/commands');CMDS=cc.commands||[];
+ document.getElementById('cmdlist').innerHTML=CMDS.map(c=>`<option value="${c.name}">${c.desc.slice(0,64)}</option>`).join('');
  const t=await api('GET','/api/telemetry');
  const r=await api('GET','/api/projects');
  document.getElementById('list').innerHTML = (r.projects.length?'':'<div class="card"><b>No working directories yet.</b><div class="hint">Add the folder where you run Claude Code.</div></div>')+
@@ -290,7 +319,7 @@ function showForm(ex){
   <label>Where can the agent write?</label>
   <div class="modes"><label><input type="checkbox" id="wproj" checked> This project folder only (recommended)</label></div>
   <label>Which sites may it reach?</label>${mkChipField('net',F.network||[])}
-  <label>Allowed commands</label>${mkChipField('allow',F.shell_allow||[])}
+  <label>Allowed commands</label>${mkCmdField('allow',F.shell_allow||[])}
   <label>Always-blocked command patterns</label>${mkChipField('deny',F.shell_deny||[])}
   <div style="margin-top:16px"><button class="primary" onclick="save()">Save</button>
    <button class="ghost" onclick="document.getElementById('form').classList.add('hidden')">Cancel</button></div>`;

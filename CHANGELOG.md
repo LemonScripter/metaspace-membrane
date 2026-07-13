@@ -7,6 +7,10 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **Command picker + info list in the panel:** the "Allowed commands" field offers type-to-search
+  autocomplete from a curated catalogue of common developer commands, and a "What can these do?"
+  modal explains every command in one or two sentences (alphabetical, filterable). Backed by
+  `core/command_catalog.py`, served at `/api/commands`. Proven by `run_commands_proof.py`.
 - **Panel polish + opt-in telemetry:** edit an existing folder's rules in the panel, view
   per-folder activity (allowed / blocked / would-block), and toggle anonymous usage stats.
   Telemetry is **off by default, anonymous, never stores code / paths / personal data, and is
