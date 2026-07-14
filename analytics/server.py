@@ -133,11 +133,15 @@ def make_handler(db_path):
         def do_GET(self):
             if self.path.startswith("/healthz"):
                 return self._send(200, {"ok": True})
-            if self.path.startswith("/stats"):
+            path = self.path.split("?", 1)[0]
+            if path in ("/", "") or path.startswith("/stats"):
                 snap = snapshot(db_path)
-                if "text/html" in (self.headers.get("Accept") or ""):
-                    return self._send(200, _html(snap).encode(), ctype="text/html; charset=utf-8")
-                return self._send(200, snap)
+                # the dashboard (root or /stats in a browser) is HTML; /stats with a JSON
+                # Accept header (or an API client) gets JSON
+                wants_json = path.startswith("/stats") and "text/html" not in (self.headers.get("Accept") or "")
+                if wants_json:
+                    return self._send(200, snap)
+                return self._send(200, _html(snap).encode(), ctype="text/html; charset=utf-8")
             return self._send(404, {"ok": False, "error": "no-such-endpoint"})
 
     return Handler
