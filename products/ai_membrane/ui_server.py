@@ -134,6 +134,13 @@ def make_handler(token, port):
                 from core import telemetry
                 st = telemetry.state()
                 return self._json(200, {"consent": bool(st.get("consent")), "has_id": bool(st.get("id"))})
+            if path == "/api/license":
+                from core import license as lic
+                if not lic.available():
+                    return self._json(200, {"available": False, "tier": "free"})
+                cur = lic.current()
+                return self._json(200, {"available": True, "tier": cur.get("tier", "free"),
+                                        "email": cur.get("email"), "expires": cur.get("expires")})
             return self._send(404, "not found", "text/plain")
 
         # ---- POST: create/update ----
@@ -161,6 +168,52 @@ def make_handler(token, port):
                 from core import telemetry
                 telemetry.set_consent(bool(b.get("consent")))
                 return self._json(200, {"ok": True, "consent": telemetry.get_consent()})
+            if path == "/api/license":
+                from core import license as lic
+                if not lic.available():
+                    return self._json(200, {"ok": False,
+                                            "error": "Pro needs: pip install metaspace-membrane[pro]"})
+                if b.get("remove"):
+                    lic.remove_license()
+                    return self._json(200, {"ok": True, "tier": "free"})
+                p = lic.install_license((b.get("key") or "").strip())
+                if not p:
+                    return self._json(200, {"ok": False, "error": "Invalid or expired licence key"})
+                return self._json(200, {"ok": True, "tier": p.get("tier"),
+                                        "email": p.get("email"), "expires": p.get("expires")})
+            if path == "/api/verify":
+                import tempfile
+                import shutil
+                from core import verify as vf
+                f = (b.get("file") or "").strip()
+                if not f or not os.path.exists(f):
+                    return self._json(400, {"error": "file not found"})
+                sandbox = tempfile.mkdtemp(prefix="ms_verify_")
+                try:
+                    effects, out, err = vf.run_and_record(os.path.abspath(f), sandbox)
+                finally:
+                    shutil.rmtree(sandbox, ignore_errors=True)
+                rep = vf.analyze(effects, b.get("expect") or [])
+                return self._json(200, {"verdict": rep["verdict"], "headline": rep["headline"],
+                                        "observed": rep["observed"], "error": err})
+            if path == "/api/run":
+                from core import apprun
+                f = (b.get("file") or "").strip()
+                proj = (b.get("path") or "").strip()
+                if not f or not os.path.exists(f):
+                    return self._json(400, {"error": "file not found"})
+                if not f.endswith(".py"):
+                    return self._json(400, {"error": "the panel runs Python files (.py) under the app membrane"})
+                bio_text = project_config.read_bio(proj) if proj else None
+                if not bio_text:
+                    return self._json(400, {"error": "add this folder above first, then run"})
+                decisions, out, err, blocked = apprun.run_python(
+                    bio_text, proj, os.path.abspath(f))
+                denied = [{"kind": d["kind"], "mode": d["mode"], "target": str(d.get("target"))[:80]}
+                          for d in decisions if d["decision"] == "DENY"]
+                allowed = sum(1 for d in decisions if d["decision"] == "ALLOW")
+                return self._json(200, {"allowed": allowed, "blocked": len(denied),
+                                        "denied": denied[:8], "error": err, "stdout": (out or "")[:400]})
             return self._send(404, "not found", "text/plain")
 
         # ---- DELETE: remove ----
@@ -242,6 +295,8 @@ input[type=text]{width:100%;background:#0e1526;color:var(--fg);border:1px solid 
 <div id="list"></div>
 <div style="margin:14px 0"><button class="primary" onclick="showForm()">➕ Add a working directory</button></div>
 <div id="form" class="card hidden"></div>
+<div id="tools" class="card"></div>
+<div id="license" class="card"></div>
 <div id="consent" class="card"></div>
 <datalist id="cmdlist"></datalist>
 <style>
@@ -294,7 +349,53 @@ async function load(){
    <button onclick="showReport('${pe}')">Activity</button>
    <button class="danger ghost" onclick="del('${pe}')">Remove</button></div></div></div>`}).join('');
  document.getElementById('consent').innerHTML=`<label style="display:flex;gap:9px;align-items:center;cursor:pointer;color:var(--fg)"><input type="checkbox" ${t.consent?'checked':''} onchange="setConsent(this.checked)"> Share anonymous usage stats <span class="hint">— off by default; never any code, paths, or personal data</span></label>`;
+ renderTools();
+ await renderLicense();
 }
+function renderTools(){
+ document.getElementById('tools').innerHTML=`<h3 style="margin:2px 0 8px">Tools</h3>
+  <label>Authenticity check — is an AI-written program real, or "slop"?</label>
+  <input type="text" id="vf" placeholder="C:/path/to/app.py">
+  <div style="margin-top:8px"><button onclick="doVerify()">Check authenticity</button>
+   <span id="vfres" class="hint"></span></div>
+  <div class="hint" style="margin-top:4px">Runs the file under a safe recording membrane (writes → throwaway sandbox, network/subprocess blocked) and reports whether its real effects match what it claims.</div>
+  <label style="margin-top:16px">Run a program under the app membrane (deny-by-default effects)</label>
+  <input type="text" id="rnf" placeholder="C:/path/to/app.py">
+  <input type="text" id="rnp" placeholder="folder with its rules — must be added above" style="margin-top:6px">
+  <div style="margin-top:8px"><button onclick="doRun()">Run confined</button>
+   <span id="rnres" class="hint"></span></div>`;
+}
+async function doVerify(){
+ const f=document.getElementById('vf').value.trim();const el=document.getElementById('vfres');
+ if(!f){el.textContent='enter a .py path';return}el.textContent='running…';
+ const r=await api('POST','/api/verify',{file:f});
+ el.innerHTML = r.error&&!r.verdict ? '⚠ '+r.error :
+   `<b style="color:${r.verdict==='HOLLOW'||r.verdict==='HIDDEN-EFFECT'?'var(--danger)':'var(--ok)'}">${r.verdict}</b> — ${r.headline} `+(r.observed&&r.observed.length?'(observed: '+r.observed.join(', ')+')':'');
+}
+async function doRun(){
+ const f=document.getElementById('rnf').value.trim();const p=document.getElementById('rnp').value.trim();
+ const el=document.getElementById('rnres');if(!f){el.textContent='enter a .py path';return}el.textContent='running…';
+ const r=await api('POST','/api/run',{file:f,path:p});
+ if(r.error&&r.allowed===undefined){el.innerHTML='⚠ '+r.error;return}
+ el.innerHTML=`allowed: <b>${r.allowed}</b> · blocked: <b style="color:var(--danger)">${r.blocked}</b>`+
+  (r.denied&&r.denied.length?'<br><span class="hint">blocked: '+r.denied.map(d=>d.kind+'/'+d.mode+' '+(d.target||'')).join(' · ')+'</span>':'')+
+  (r.error?'<br><span class="hint">'+r.error+'</span>':'');
+}
+async function renderLicense(){
+ const L=await api('GET','/api/license');const el=document.getElementById('license');
+ if(!L.available){el.innerHTML=`<div class="row"><div><b>Licence</b> <span class="badge">FREE</span><div class="hint">Every feature is free right now. Paid tiers need the crypto extra: <code>pip install metaspace-membrane[pro]</code></div></div></div>`;return}
+ if(L.tier==='pro'){el.innerHTML=`<div class="row"><div><b>Licence</b> <span class="badge enforce">PRO</span><div class="hint">${L.email||''}${L.expires?' · expires '+L.expires:''}</div></div><button class="danger ghost" onclick="removeLicense()">Remove</button></div>`;return}
+ el.innerHTML=`<div><b>Licence</b> <span class="badge">FREE</span> <span class="hint">— every feature is free right now; a key just records your tier</span></div>
+  <label>Have a licence key?</label><input type="text" id="lkey" placeholder="paste your key">
+  <div style="margin-top:8px"><button class="primary" onclick="activateLicense()">Activate</button> <span id="lres" class="hint"></span></div>`;
+}
+async function activateLicense(){
+ const k=document.getElementById('lkey').value.trim();const el=document.getElementById('lres');
+ if(!k){el.textContent='paste a key';return}
+ const r=await api('POST','/api/license',{key:k});
+ if(r.ok){el.textContent='activated';renderLicense();}else{el.textContent='⚠ '+(r.error||'invalid');}
+}
+async function removeLicense(){if(confirm('Remove the licence and return to free?')){await api('POST','/api/license',{remove:true});renderLicense();}}
 async function setConsent(on){await api('POST','/api/telemetry',{consent:on})}
 async function toggleMode(path,cur){await api('POST','/api/mode',{path,mode:cur==='enforce'?'dryrun':'enforce'});load()}
 async function del(path){if(confirm('Remove the membrane config for this folder?')){await api('DELETE','/api/project',{path});load()}}

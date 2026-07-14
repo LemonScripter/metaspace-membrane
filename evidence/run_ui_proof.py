@@ -148,6 +148,55 @@ def main():
     code, html = req(base, "GET", "/?token=" + token)
     check(code == 200 and "MetaSpace Warden" in html, "the panel page loads with a valid token")
 
+    # ---- authenticity gate from the panel (/api/verify) ----
+    hollow = os.path.join(HOME, "hollow.py")
+    with open(hollow, "w", encoding="utf-8") as fh:
+        fh.write("print('Saved 1,000,000 rows!')\n")
+    vout = json.loads(req(base, "POST", "/api/verify", token=token, origin=good_origin,
+                          body={"file": hollow})[1])
+    check(vout.get("verdict") == "NO-EFFECTS", "panel verify flags a do-nothing program (NO-EFFECTS)")
+    hidden = os.path.join(HOME, "hidden.py")
+    with open(hidden, "w", encoding="utf-8") as fh:
+        fh.write("import socket\nopen('x.txt','w').write('1')\n"
+                 "try:\n socket.create_connection(('h.example', 80))\nexcept Exception: pass\n")
+    vout2 = json.loads(req(base, "POST", "/api/verify", token=token, origin=good_origin,
+                           body={"file": hidden})[1])
+    check(vout2.get("verdict") == "HIDDEN-EFFECT",
+          "panel verify catches an undeclared network call (HIDDEN-EFFECT)")
+
+    # ---- app membrane from the panel (/api/run) ----
+    runapp = os.path.join(projX, "runme.py")
+    with open(runapp, "w", encoding="utf-8") as fh:
+        fh.write("import socket\nopen('inside.txt','w').write('ok')\n"
+                 "try:\n socket.create_connection(('h.example', 80))\nexcept Exception: pass\n")
+    rout = json.loads(req(base, "POST", "/api/run", token=token, origin=good_origin,
+                          body={"file": runapp, "path": projX})[1])
+    check(rout.get("allowed", 0) >= 1 and rout.get("blocked", 0) >= 1,
+          "panel run: granted write allowed, undeclared network blocked (app membrane)")
+
+    # ---- licence panel (/api/license): status + activate + reject + remove (offline Ed25519) ----
+    lic_status = json.loads(req(base, "GET", "/api/license", token=token)[1])
+    check("tier" in lic_status, "GET /api/license returns the current tier")
+    if lic_status.get("available"):
+        from core import license as lic
+        priv, pub = lic.generate_keypair()
+        os.environ["METASPACE_LICENSE_PUBKEY"] = pub
+        key = lic.issue(priv, "panel@example.com", tier="pro", days=30)
+        aout = json.loads(req(base, "POST", "/api/license", token=token, origin=good_origin,
+                              body={"key": key})[1])
+        check(aout.get("ok") and aout.get("tier") == "pro", "panel activates a valid Pro key")
+        st = json.loads(req(base, "GET", "/api/license", token=token)[1])
+        check(st.get("tier") == "pro", "licence status reads back Pro after activation")
+        bad = json.loads(req(base, "POST", "/api/license", token=token, origin=good_origin,
+                             body={"key": "not-a-key"})[1])
+        check(not bad.get("ok"), "panel rejects an invalid key")
+        rem = json.loads(req(base, "POST", "/api/license", token=token, origin=good_origin,
+                             body={"remove": True})[1])
+        check(rem.get("tier") == "free", "panel removes the licence (back to free)")
+        os.environ.pop("METASPACE_LICENSE_PUBKEY", None)
+    else:
+        print("  note: [pro] crypto extra absent — licence activation sub-check skipped")
+
     # remove
     code, out = req(base, "DELETE", "/api/project", token=token, origin=good_origin, body={"path": projX})
     check(code == 200 and json.loads(out).get("ok"), "authorized DELETE removes the config")

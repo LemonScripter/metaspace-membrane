@@ -7,6 +7,14 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **The control panel now surfaces the app membrane, the authenticity gate, and licence
+  status.** So the panel (`metaspace ui`) shows a real, visible change and you can drive every
+  feature in one place: run a Python program under the **app membrane** (`/api/run` → the granted
+  effects allowed, undeclared writes/network/subprocess blocked), run the **authenticity gate** on
+  a file (`/api/verify` → verdict: NO-EFFECTS flags a do-nothing program, HIDDEN-EFFECT catches an
+  undeclared network/subprocess), and view / activate / remove a **licence** key (`/api/license`,
+  verified offline). All three inherit the panel's self-defence (localhost + per-launch token +
+  same-origin). Proven by the extended `run_ui_proof.py`.
 - **Privacy-first analytics service (`analytics/`) + opt-in CLI upload.** A tiny stdlib HTTP
   service that *counts* — and nothing more: cookie-free, no IP / user-agent / per-event rows
   stored, only aggregate counters in SQLite, so there is nothing personal to leak (the store can
