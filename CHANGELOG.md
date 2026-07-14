@@ -7,6 +7,15 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **Privacy-first analytics service (`analytics/`) + opt-in CLI upload.** A tiny stdlib HTTP
+  service that *counts* — and nothing more: cookie-free, no IP / user-agent / per-event rows
+  stored, only aggregate counters in SQLite, so there is nothing personal to leak (the store can
+  answer "how many", never "who"). Endpoints: `POST /a` (landing visit/CTA beacon), `POST /t`
+  (opt-in CLI action), `GET /stats` (+ a minimal dashboard). Every stored token is sanitised to
+  `[a-z0-9_.-]` and length-capped, so a hostile beacon cannot inject or crash it. The CLI uploads
+  **only the coarse event name**, and **only** when telemetry consent is on **and**
+  `METASPACE_ANALYTICS_URL` is set (default: no network, no id). `analytics/server.py`; proven by
+  `run_analytics_proof.py` (P-ANALYTICS).
 - **`metaspace run` — the app membrane: run a program confined to its `.bio` (deny-by-default
   effects).** The app-side counterpart of the Warden (which guards the coding *agent*): here a
   *running program* — including one an AI wrote — can only produce the effects its constitution

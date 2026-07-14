@@ -24,6 +24,14 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Confining a process that already started is the OS substrate's job, not the agent hook's | [SCOPE-LIMIT] | `SECURITY.md`, `docs/THREAT_FRIENDLY_FIRE.md` §9 | — |
 | Research prototype / MVP (TRL ~3–4); no third-party security audit yet | [SCOPE-LIMIT] | `SECURITY.md` | — |
 
+## Analytics claims (F6-2 — privacy-first statistics)
+| Claim | Type | Backed by | Verified |
+|---|---|---|---|
+| The service counts visits / CTA clicks / opt-in CLI actions and the counts accumulate | [PROVEN] | `run_analytics_proof` (P-ANALYTICS) | Win + Linux (2026-07-14) |
+| Cookie-free and aggregate-only: the store has exactly one `counts(key,n)` table — no ip / cookie / user-agent / per-event data exists to leak | [PROVEN] | `run_analytics_proof` | Win + Linux (2026-07-14) |
+| Hostile input is sanitised to `[a-z0-9_.-]` and length-capped; a malformed body → 400 and the server keeps serving; a `DROP TABLE` beacon does nothing | [PROVEN] | `run_analytics_proof` | Win + Linux (2026-07-14) |
+| The CLI uploads only the coarse event name, opt-in (consent on **and** endpoint set), never blocking or fatal, never an id/path | [PROVEN] | `core/telemetry.py` (+ P-TELEMETRY) | Win + Linux |
+
 ## App-membrane claims (F8 — `metaspace run`)
 | Claim | Type | Backed by | Verified |
 |---|---|---|---|

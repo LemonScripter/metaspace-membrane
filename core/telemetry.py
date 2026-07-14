@@ -21,7 +21,33 @@ import uuid
 import datetime
 
 # fixed event vocabulary — no free-form strings are ever accepted as events
-ALLOWED_EVENTS = {"install", "enforce", "dryrun", "off", "ui_open"}
+ALLOWED_EVENTS = {"install", "enforce", "dryrun", "off", "ui_open", "run", "verify", "license"}
+
+
+def _endpoint():
+    # opt-in network delivery: OFF unless the user sets this AND consent is on. No default URL.
+    return os.environ.get("METASPACE_ANALYTICS_URL", "").strip()
+
+
+def _deliver(event):
+    """Best-effort, opt-in upload of ONLY the coarse event name (no id, no PII, no path).
+    Fires only when consent is on and an endpoint is configured; never blocks or raises."""
+    url = _endpoint()
+    if not url or not get_consent():
+        return
+    import json as _json
+    import threading
+    import urllib.request
+
+    def _post():
+        try:
+            data = _json.dumps({"action": event}).encode()
+            req = urllib.request.Request(url.rstrip("/") + "/t", data=data, method="POST")
+            req.add_header("Content-Type", "application/json")
+            urllib.request.urlopen(req, timeout=2).read()
+        except Exception:
+            pass
+    threading.Thread(target=_post, daemon=True).start()
 
 
 def _dir():
@@ -81,4 +107,5 @@ def record(event, **fields):
     os.makedirs(_dir(), exist_ok=True)
     with open(_events_path(), "a", encoding="utf-8") as fh:
         fh.write(json.dumps(rec) + "\n")
+    _deliver(event)          # opt-in, non-blocking; sends only the coarse event name
     return True

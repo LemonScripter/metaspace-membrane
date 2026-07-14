@@ -497,7 +497,7 @@ def cmd_run(args):
         with open(bio_path, encoding="utf-8") as fh:
             bio_text = fh.read()
         from core import apprun
-        _track("run_python")
+        _track("run")
         decisions, out, err, blocked = apprun.run_python(bio_text, root, os.path.abspath(args.target))
         if out:
             sys.stdout.write(out if out.endswith("\n") else out + "\n")
@@ -521,7 +521,7 @@ def cmd_run(args):
     if not bio_path:
         sys.stderr.write("no constitution: pass --bio FILE\n")
         return 2
-    _track("run_native")
+    _track("run")
     enforcer = os.path.join(HERE, "products", "app_membrane", "sandbox_enforcer.py")
     cmd = [sys.executable, enforcer, "--bio", bio_path, "--root", root, "--", args.target] + prog
     import subprocess
