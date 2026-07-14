@@ -7,6 +7,17 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **`metaspace run` — the app membrane: run a program confined to its `.bio` (deny-by-default
+  effects).** The app-side counterpart of the Warden (which guards the coding *agent*): here a
+  *running program* — including one an AI wrote — can only produce the effects its constitution
+  grants. A **Python** target runs under an in-process membrane on **any OS** (writes to undeclared
+  paths, network, and subprocess are blocked deny-by-default; declared effects hit the real
+  resource; reads pass through); a **native binary** is confined by the Linux kernel (**Landlock**)
+  as a hard boundary. `core/apprun.py`; proven by `run_apprun_proof.py` (P-APPRUN): a granted write
+  really lands on disk while an out-of-scope write, a network call, and a subprocess are all blocked
+  — and on Linux a native program's out-of-scope write fails at the kernel (EACCES). Honest scope:
+  the Python backend is a language-level membrane (usable, cross-OS), bypassable by adversarial
+  native code — use the Landlock backend for a hard boundary against untrusted binaries.
 - **Offline licence layer (open-core monetisation infrastructure) — `metaspace license` /
   `keygen` / `issue`.** Paid tiers are unlocked by an Ed25519-signed key verified **fully
   offline** against an embedded vendor public key — no phone-home, works air-gapped. The free

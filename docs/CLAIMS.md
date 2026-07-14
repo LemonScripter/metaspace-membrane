@@ -24,6 +24,13 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Confining a process that already started is the OS substrate's job, not the agent hook's | [SCOPE-LIMIT] | `SECURITY.md`, `docs/THREAT_FRIENDLY_FIRE.md` §9 | — |
 | Research prototype / MVP (TRL ~3–4); no third-party security audit yet | [SCOPE-LIMIT] | `SECURITY.md` | — |
 
+## App-membrane claims (F8 — `metaspace run`)
+| Claim | Type | Backed by | Verified |
+|---|---|---|---|
+| A running Python program is confined to its `.bio` deny-by-default: granted writes really happen (incl. relative paths), undeclared writes / network / subprocess are blocked | [PROVEN] | `run_apprun_proof` (P-APPRUN) | Win + Linux (2026-07-14) |
+| A native binary's out-of-scope write is blocked at the kernel (Landlock, EACCES) — a hard boundary | [PROVEN] | `run_apprun_proof` (Landlock leg) | Linux (2026-07-14) |
+| The Python backend is a language-level membrane (cross-OS, deny-by-default) but bypassable by adversarial native code; the hard boundary for untrusted binaries is Landlock (Linux) | [SCOPE-LIMIT] | `core/apprun.py` docstring | — |
+
 ## Monetisation claims (F6 — open-core licence)
 | Claim | Type | Backed by | Verified |
 |---|---|---|---|

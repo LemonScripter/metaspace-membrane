@@ -464,6 +464,70 @@ def cmd_verify(args):
     return 0 if rep["verdict"] in ("CONSISTENT", "OK", "NO-EFFECTS") else 1
 
 
+def cmd_run(args):
+    """App membrane: run a program confined to a .bio — it can only produce the effects its
+    constitution grants (deny-by-default). Python target -> in-process membrane (any OS);
+    native binary -> Landlock (Linux)."""
+    import platform
+    root = os.path.abspath(args.root) if args.root else os.getcwd()
+
+    # resolve the constitution: explicit --bio, else the folder's configured one
+    bio_path = args.bio
+    if not bio_path:
+        from core import project_config
+        bp, _mode = project_config.resolve(root)
+        if bp and os.path.exists(bp):
+            bio_path = bp
+    if bio_path and not os.path.exists(bio_path):
+        sys.stderr.write("bio not found: %s\n" % bio_path)
+        return 2
+
+    prog = list(args.rest or [])
+    if prog and prog[0] == "--":
+        prog = prog[1:]
+
+    is_py = args.target.endswith(".py") and not args.native
+    if is_py:
+        if not bio_path:
+            sys.stderr.write("no constitution: pass --bio FILE (or configure the folder in `metaspace ui`)\n")
+            return 2
+        if not os.path.exists(args.target):
+            sys.stderr.write("file not found: %s\n" % args.target)
+            return 2
+        with open(bio_path, encoding="utf-8") as fh:
+            bio_text = fh.read()
+        from core import apprun
+        _track("run_python")
+        decisions, out, err, blocked = apprun.run_python(bio_text, root, os.path.abspath(args.target))
+        if out:
+            sys.stdout.write(out if out.endswith("\n") else out + "\n")
+        allowed = [d for d in decisions if d["decision"] == "ALLOW"]
+        denied = [d for d in decisions if d["decision"] == "DENY"]
+        print("-" * 60)
+        print("  MetaSpace app membrane — %s" % args.target)
+        print("  allowed effects: %d    blocked (deny-by-default): %d" % (len(allowed), len(denied)))
+        for d in denied[:8]:
+            print("     BLOCKED  %s/%s  %s" % (d["kind"], d["mode"], d.get("target")))
+        if err:
+            print("  program: %s" % err)
+        print("-" * 60)
+        return 1 if err else 0
+
+    # native program -> kernel-enforced Landlock (Linux only, fail-closed elsewhere)
+    if platform.system() != "Linux":
+        sys.stderr.write("[app membrane] confining a native binary needs Linux (Landlock). "
+                         "On this OS run a Python target for the in-process membrane.\n")
+        return 3
+    if not bio_path:
+        sys.stderr.write("no constitution: pass --bio FILE\n")
+        return 2
+    _track("run_native")
+    enforcer = os.path.join(HERE, "products", "app_membrane", "sandbox_enforcer.py")
+    cmd = [sys.executable, enforcer, "--bio", bio_path, "--root", root, "--", args.target] + prog
+    import subprocess
+    return subprocess.call(cmd)
+
+
 def _track(event):
     """Opt-in, privacy-first usage signal (default OFF; no-op unless the user opted in).
     Never on the enforcement hot path — only coarse CLI actions. Never fatal."""
@@ -641,6 +705,14 @@ def build_parser():
     vf.add_argument("--expect", action="append", metavar="KIND",
                     help="an effect it should produce: writes | network | subprocess (repeatable or comma-separated)")
     vf.set_defaults(fn=cmd_verify)
+
+    rn = sub.add_parser("run", help="app membrane: run a program confined to a .bio (deny-by-default effects)")
+    rn.add_argument("--bio", default=None, help="constitution (default: the folder's configured one)")
+    rn.add_argument("--root", default=None, help="value substituted for {{PROJECT_ROOT}} (default: cwd)")
+    rn.add_argument("--native", action="store_true", help="treat the target as a native binary (Linux/Landlock)")
+    rn.add_argument("target", help="a Python file (any OS) or a native program (--native, Linux)")
+    rn.add_argument("rest", nargs=argparse.REMAINDER, help="-- [args passed to the program]")
+    rn.set_defaults(fn=cmd_run)
 
     lc = sub.add_parser("license", help="show / install / remove a licence key (offline, no phone-home)")
     lc.add_argument("key", nargs="?", default=None, help="a licence key to install (omit to show status)")
