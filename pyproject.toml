@@ -4,13 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metaspace-membrane"
-version = "0.2.0"
+version = "0.3.0"
 description = "A deterministic safety membrane for machine-generated software (MetaSpace.Bio Engine Project)."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Proprietary — patent pending" }
+license = { text = "BUSL-1.1" }
 authors = [{ name = "Szőke László-Ferenc", email = "admin@metaspace.bio" }]
-keywords = ["security", "sandbox", "webassembly", "capability", "ai-safety", "guardrail"]
+keywords = ["security", "sandbox", "webassembly", "capability", "ai-safety", "guardrail", "claude-code", "agent-safety"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 # The Warden agent hook + core/ are stdlib-only (zero third-party deps). wasmtime is needed
 # ONLY to run the WebAssembly/WASI proofs — hence the optional [proofs] extra, not a runtime dep.
 dependencies = []
@@ -26,6 +38,9 @@ metaspace = "cli:main"
 
 [project.urls]
 Homepage = "https://metaspace.bio"
+Repository = "https://github.com/LemonScripter/metaspace-membrane"
+Issues = "https://github.com/LemonScripter/metaspace-membrane/issues"
+Landing = "https://ai-membrane.metaspace.bio"
 
 [tool.setuptools]
 py-modules = ["cli"]

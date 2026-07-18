@@ -2,11 +2,11 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "metaspace-membrane",
   "displayName": "MetaSpace Membrane",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Deny-by-default agent membrane: a PreToolUse hook that keeps the coding agent inside a hardened .bio constitution (project-only writes, network host allowlist, dangerous-command block).",
   "author": { "name": "Szőke László-Ferenc", "email": "admin@metaspace.bio" },
   "homepage": "https://github.com/LemonScripter/metaspace-membrane",
   "repository": "https://github.com/LemonScripter/metaspace-membrane",
-  "license": "LicenseRef-Proprietary",
+  "license": "BUSL-1.1",
   "keywords": ["ai-safety", "guardrails", "hook", "sandbox", "agent-safety", "claude-code", "security"]
 }

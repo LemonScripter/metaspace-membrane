@@ -1,10 +1,11 @@
-# ⚠️ DRAFT — NOT THE LICENSE IN EFFECT
+# BSL 1.1 — parameter rationale & open questions for counsel
 
-**This is a working draft of a Business Source License (BSL 1.1) for review by IP counsel.
-It is NOT in effect and grants NO rights.** The license that actually governs this repository
-is [`LICENSE`](../LICENSE) (Proprietary — patent pending). This file exists only to prepare the
-intended open-core wording so counsel can finalize it; nothing here is legal advice, and the
-project's rights do not change until `LICENSE` itself is replaced after sign-off.
+**The Business Source License 1.1 is now the license in effect** — see [`LICENSE`](../LICENSE),
+which uses the canonical BSL 1.1 text with the parameters below. This file records *why* those
+parameters were chosen and the points IP counsel should still confirm/refine. Nothing here is
+legal advice. Two verification items remain outstanding (see "Notes for counsel"): (1) confirm the
+canonical BSL 1.1 body in `LICENSE` matches the official text at mariadb.com/bsl11 verbatim, and
+(2) finalize the *Competing Use* scope, per-version Change Date, and patent interaction.
 
 Rationale for the eventual move (recorded decision): BSL keeps the patent moat intact (unlike an
 Apache-2.0 patent grant) while being source-available with a generous Additional Use Grant — free
@@ -33,4 +34,4 @@ for all non-competing use — and converting to a true open-source license on th
 - Decide whether the Change Date is per-release rolling (typical BSL) or a single fixed date.
 - Add the standard BSL 1.1 "Covenants", "Notice", and disclaimer sections from the canonical text.
 
-**Until counsel approves and `LICENSE` is replaced, this project remains Proprietary.**
+**BSL 1.1 is in effect now (`LICENSE`); counsel refinement of the items above is a follow-up, not a blocker to the granted rights.**

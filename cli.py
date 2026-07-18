@@ -24,7 +24,7 @@ sys.path.insert(0, HERE)
 
 # single runtime source of the version; kept in lockstep with pyproject.toml and
 # .claude-plugin/plugin.json — enforced by evidence/run_version_proof.py (P-VERSION).
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 
 def _ascii():

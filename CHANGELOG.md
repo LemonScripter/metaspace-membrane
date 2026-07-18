@@ -4,7 +4,18 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com); the project uses semantic versioning.
 Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membrane[proofs]`).
 
-## [Unreleased] — Warden control panel (F4, in progress)
+## [0.3.0] — 2026-07-18 — Warden control panel, tools & open-core license
+
+### Changed
+- **License: Proprietary → Business Source License 1.1 (open-core), now in effect.** The prior
+  "permission is NOT granted to use" license was self-contradictory for a `pip install`-able tool
+  and blocked adoption. The Licensed Work is now **free to use, copy, modify and redistribute for
+  any non-competing purpose** (internal use, research, education, and products that depend on it);
+  each version converts to **Apache-2.0** four years after release. The only reserved use is a
+  competing commercial safety-membrane product/service. Synced across `LICENSE`, `pyproject.toml`
+  (`BUSL-1.1` + PyPI classifiers + URLs), `.claude-plugin/plugin.json`, and `README.md`. Counsel
+  refinement of the Competing-Use scope and per-version Change Date is a follow-up (see
+  `docs/LICENSE.BSL.draft.md`), not a blocker to the granted rights.
 
 ### Added
 - **A trilingual (EN/RO/HU) "What's this?" help modal on "Add a working directory".**

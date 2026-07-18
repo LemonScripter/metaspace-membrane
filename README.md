@@ -336,9 +336,11 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
 
 ---
 
-© Szőke László-Ferenc — MetaSpace.Bio Engine Project. Patent pending. See [LICENSE](LICENSE)
-(Proprietary). An open-core move to a Business Source License is intended and drafted for IP
-counsel in [`docs/LICENSE.BSL.draft.md`](docs/LICENSE.BSL.draft.md) — a non-binding draft; the
-`LICENSE` above governs until it is finalized.
+© Szőke László-Ferenc — MetaSpace.Bio Engine Project. Patent pending. Licensed under the
+**Business Source License 1.1** — see [LICENSE](LICENSE). Source-available: free to use, copy,
+modify and redistribute for **any non-competing purpose** (internal use, research, education, and
+products that merely depend on it); each version converts to **Apache-2.0** four years after its
+release. The only reserved use is offering a competing commercial safety-membrane product/service.
+For commercial or competing-use licensing: admin@metaspace.bio.
 
 <sub>Designed and authored by Szőke László-Ferenc, with AI pair-programming assistance (Claude).</sub>
