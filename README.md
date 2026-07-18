@@ -66,6 +66,10 @@ metaspace install     # user-level, starts in dry-run (observe, no blocking)
 metaspace demo        # live self-test: watch it block the attack, then `metaspace enforce`
 ```
 
+![`metaspace demo` — the "Friendly Fire" attack blocked live](assets/demo.gif)
+
+*`metaspace demo` running the real hook: the agent is assumed fully deceived, yet every attack effect is blocked while normal work still runs.*
+
 Requires **Python 3.10+** (the hook has zero third-party dependencies — nothing else to install).
 The membrane installs **outside any project's write scope**, so a prompt-injected agent cannot
 disable it. Full guide + honest scope: **[`docs/INSTALL.md`](docs/INSTALL.md)**.
