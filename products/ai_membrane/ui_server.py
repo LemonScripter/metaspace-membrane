@@ -293,7 +293,7 @@ input[type=text]{width:100%;background:#0e1526;color:var(--fg);border:1px solid 
 <h1>MetaSpace Warden</h1>
 <p class="sub">A safety membrane for your AI coding agent. Configure it per working directory.</p>
 <div id="list"></div>
-<div style="margin:14px 0"><button class="primary" onclick="showForm()">➕ Add a working directory</button></div>
+<div style="margin:14px 0"><button class="primary" onclick="showForm()">➕ Add a working directory</button> <a href="#" class="cmdinfo-link" onclick="event.preventDefault();openDirInfo()">&#9432; What&#39;s this?</a></div>
 <div id="form" class="card hidden"></div>
 <div id="tools" class="card"></div>
 <div id="license" class="card"></div>
@@ -331,6 +331,15 @@ dialog.modal2::backdrop{background:rgba(4,8,14,.62)}
     </span>
   </div>
   <div id="tg-body" class="tg-body"></div>
+</dialog>
+<dialog id="dirinfo" class="modal2">
+  <div class="m2head"><b>Working directories — what &amp; why</b>
+    <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <span class="tglangs"><button id="dglang-en" class="tglang" onclick="setDirLang('en')">EN</button><button id="dglang-hu" class="tglang" onclick="setDirLang('hu')">HU</button><button id="dglang-ro" class="tglang" onclick="setDirLang('ro')">RO</button></span>
+      <button class="mx2" onclick="document.getElementById('dirinfo').close()" aria-label="Close">✕</button>
+    </span>
+  </div>
+  <div id="dg-body" class="tg-body"></div>
 </dialog>
 <p class="foot">Settings are stored under <code>~/.claude</code> — outside your projects, so a
 prompt-injected agent cannot change or disable them. Restart Claude Code after changes.</p>
@@ -387,6 +396,35 @@ function renderToolsInfo(l){if(!TOOLS_GUIDE[l])l='en';document.getElementById('t
  ['en','hu','ro'].forEach(x=>{var b=document.getElementById('tglang-'+x);if(b)b.className='tglang'+(x===l?' active':'')});}
 function setToolsLang(l){try{localStorage.setItem('ms_lang',l)}catch(e){}renderToolsInfo(l)}
 function openToolsInfo(){var l='en';try{l=localStorage.getItem('ms_lang')||'en'}catch(e){}renderToolsInfo(l);var d=document.getElementById('toolsinfo');if(d.showModal)d.showModal()}
+const DIR_GUIDE={
+ en:`<p class="tg-intro">A <b>working directory</b> is the project folder where you run Claude Code. You add it here so the membrane knows <b>which folder to guard</b> and with <b>which rules</b>. Each folder gets its own constitution — configure them independently.</p>
+<h4>&#128193; What is a working directory?</h4>
+<p><b>What it's for:</b> it's the root your AI agent works inside. Adding it registers a <code>.bio</code> constitution for that folder — from then on the agent is <b>confined</b> to it: project-only writes, a network host allowlist, and blocked dangerous commands. <b>Deny-by-default</b> — anything not explicitly granted is refused.</p>
+<h4>&#128064; Observe vs. Enforce</h4>
+<p><b>Observe</b> (dry-run) only <i>warns</i> — nothing is blocked, so you can watch what the agent would do first. <b>Enforce</b> actually <i>blocks</i> out-of-scope effects. Toggle it per folder at any time.</p>
+<h4>&#128295; Do the tools need this folder too?</h4>
+<p>The <b>authenticity check</b> needs only a <b>file</b> — it runs in its own throwaway sandbox. <b>Run under a membrane</b> uses the <b>rules of a folder you add here</b>, so add the folder first, then run: the folder gives both the constitution and the scope its effects are confined to.</p>
+<div class="tg-note"><b>&#8505;&#65039; Good to know:</b> the config lives under <code>~/.claude</code>, <b>outside</b> your projects — so a prompt-injected agent cannot change or disable it. Restart Claude Code after changes.</div>`,
+ hu:`<p class="tg-intro">A <b>munkakönyvtár</b> az a projektmappa, amelyben a Claude Code-ot futtatod. Itt adod hozzá, hogy a membrán tudja, <b>melyik mappát védje</b> és <b>milyen szabályokkal</b>. Minden mappa saját alkotmányt kap — külön-külön állíthatók.</p>
+<h4>&#128193; Mi az a munkakönyvtár?</h4>
+<p><b>Mire jó:</b> ez az a gyökér, amin belül az MI-ügynök dolgozik. Hozzáadva egy <code>.bio</code> alkotmányt regisztrálsz ehhez a mappához — ettől kezdve az ügynök <b>bezárva</b> dolgozik: csak a projektbe írhat, csak engedett hálózati hosztokat érhet el, a veszélyes parancsok blokkolva. <b>Deny-by-default</b> — amit nem engedélyeztél kifejezetten, azt megtagadja.</p>
+<h4>&#128064; Observe vs. Enforce</h4>
+<p><b>Observe</b> (dry-run) csak <i>figyelmeztet</i> — semmit sem blokkol, így előbb megnézheted, mit tenne az ügynök. Az <b>Enforce</b> ténylegesen <i>blokkolja</i> a hatókörön kívüli effekteket. Mappánként bármikor váltható.</p>
+<h4>&#128295; Az eszközökhöz is kell ez a mappa?</h4>
+<p>A <b>hitelesség-ellenőrzéshez</b> elég egy <b>fájl</b> — a saját eldobható sandboxában fut. A <b>membrán alatti futtatás</b> egy <b>itt hozzáadott mappa szabályait</b> használja, ezért előbb add hozzá a mappát, aztán futtass: a mappa adja az alkotmányt és a hatókört is, amelybe az effektek zárva vannak.</p>
+<div class="tg-note"><b>&#8505;&#65039; Jó tudni:</b> a konfiguráció a <code>~/.claude</code> alatt van, a projektjeiden <b>kívül</b> — így egy prompt-injektált ügynök nem tudja megváltoztatni vagy kikapcsolni. Változtatás után indítsd újra a Claude Code-ot.</div>`,
+ ro:`<p class="tg-intro">Un <b>director de lucru</b> este folderul de proiect în care rulezi Claude Code. Îl adaugi aici pentru ca membrana să știe <b>ce folder să păzească</b> și cu <b>ce reguli</b>. Fiecare folder primește propria constituție — configurează-le independent.</p>
+<h4>&#128193; Ce este un director de lucru?</h4>
+<p><b>La ce folosește:</b> este rădăcina în care lucrează agentul AI. Adăugându-l, înregistrezi o constituție <code>.bio</code> pentru acel folder — de atunci agentul e <b>închis</b> în el: scrie doar în proiect, accesează doar hosturi de rețea permise, iar comenzile periculoase sunt blocate. <b>Deny-by-default</b> — orice nu e permis explicit este refuzat.</p>
+<h4>&#128064; Observe vs. Enforce</h4>
+<p><b>Observe</b> (dry-run) doar <i>avertizează</i> — nu blochează nimic, ca să vezi întâi ce ar face agentul. <b>Enforce</b> chiar <i>blochează</i> efectele din afara domeniului. Comută pe fiecare folder oricând.</p>
+<h4>&#128295; Instrumentele au nevoie și ele de acest folder?</h4>
+<p><b>Verificarea autenticității</b> are nevoie doar de un <b>fișier</b> — rulează în propriul sandbox temporar. <b>Rularea sub o membrană</b> folosește <b>regulile unui folder adăugat aici</b>, deci adaugă întâi folderul, apoi rulează: folderul oferă atât constituția, cât și domeniul în care sunt închise efectele.</p>
+<div class="tg-note"><b>&#8505;&#65039; Bine de știut:</b> configurația se află sub <code>~/.claude</code>, <b>în afara</b> proiectelor tale — așa că un agent cu prompt injectat nu o poate modifica sau dezactiva. Repornește Claude Code după modificări.</div>`};
+function renderDirInfo(l){if(!DIR_GUIDE[l])l='en';document.getElementById('dg-body').innerHTML=DIR_GUIDE[l];
+ ['en','hu','ro'].forEach(x=>{var b=document.getElementById('dglang-'+x);if(b)b.className='tglang'+(x===l?' active':'')});}
+function setDirLang(l){try{localStorage.setItem('ms_lang',l)}catch(e){}renderDirInfo(l)}
+function openDirInfo(){var l='en';try{l=localStorage.getItem('ms_lang')||'en'}catch(e){}renderDirInfo(l);var d=document.getElementById('dirinfo');if(d.showModal)d.showModal()}
 function esc(s){return (s||'').replace(/'/g,"")}
 async function load(){
  const d=await api('GET','/api/default');DEF=d.fields;

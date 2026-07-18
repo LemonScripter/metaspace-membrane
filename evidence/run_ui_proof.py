@@ -155,6 +155,13 @@ def main():
     check("Hitelesség-ellenőrzés" in html, "Tools guide includes the Hungarian (HU) copy")
     check("Verificarea autenticității" in html, "Tools guide includes the Romanian (RO) copy")
 
+    # ---- "Add a working directory" help modal ships the same trilingual guide (EN/HU/RO) ----
+    check('id="dirinfo"' in html and "openDirInfo" in html,
+          "the working-directory help modal + trigger are present in the page")
+    check("What is a working directory?" in html, "directory guide includes the English (EN) copy")
+    check("Mi az a munkakönyvtár?" in html, "directory guide includes the Hungarian (HU) copy")
+    check("Ce este un director de lucru?" in html, "directory guide includes the Romanian (RO) copy")
+
     # ---- authenticity gate from the panel (/api/verify) ----
     hollow = os.path.join(HOME, "hollow.py")
     with open(hollow, "w", encoding="utf-8") as fh:

@@ -7,6 +7,16 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **A trilingual (EN/RO/HU) "What's this?" help modal on "Add a working directory".**
+  An "ⓘ What's this?" link next to the button opens a guide (EN·HU·RO switch, shares the same
+  `ms_lang` preference as the Tools modal; default EN) explaining: what a working directory is,
+  that adding it registers a per-folder `.bio` (project-only writes, network allowlist, blocked
+  commands, deny-by-default), the observe-vs-enforce distinction, and — answering a common
+  question — that the **authenticity check needs only a file** (own throwaway sandbox) while
+  **"run under a membrane" needs the folder** (it supplies both the constitution and the scope
+  effects are confined to). Ends with the self-protection note (`~/.claude`, outside projects).
+  Zero deps (inline, self-contained). Proven by `run_ui_proof.py` (the page ships the `dirinfo`
+  modal + trigger and all three languages).
 - **Plugin-marketplace listing polish (discoverability).** Added slash **commands**
   (`/metaspace-report`, `/metaspace-ratify`, `/metaspace-verify`, `/metaspace-status`) under
   `commands/` — thin wrappers over the CLI, so the plugin ships more than a lone hook.
