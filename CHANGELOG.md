@@ -7,6 +7,23 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased] — Warden control panel (F4, in progress)
 
 ### Added
+- **Plugin-marketplace listing polish (discoverability).** Added slash **commands**
+  (`/metaspace-report`, `/metaspace-ratify`, `/metaspace-verify`, `/metaspace-status`) under
+  `commands/` — thin wrappers over the CLI, so the plugin ships more than a lone hook.
+  Added `license` (`LicenseRef-Proprietary`) and `repository` fields plus `claude-code` /
+  `security` keywords to `.claude-plugin/plugin.json`. Added README **Screenshots** section
+  with `assets/panel.png` (the live control panel, a project in *enforcing* mode) and
+  `assets/landing.png` (the deny-by-default value proposition). Version parity proof still green.
+- **A plain-language "How do these tools work?" help modal on the Tools card (EN/HU/RO).**
+  An "ⓘ How do these work?" link opens a trilingual guide (an in-modal EN·HU·RO switch,
+  remembered locally; default EN) explaining how to use the authenticity gate (`verify`) and
+  the app membrane (`run`): what to enter (the program's **entry file** — the one you'd start
+  with `python`), **why** (the tools *run* the program, they don't scan it, so one entry point
+  covers the whole run — imported files included), what each verdict means
+  (CONSISTENT / HOLLOW / HIDDEN-EFFECT / NO-EFFECTS), and the honest limits (Python only;
+  claims-vs-effects, not general correctness; reads don't affect the verdict; the hard boundary
+  for untrusted binaries is Landlock on Linux). Zero deps (inline, self-contained). Proven by the
+  extended `run_ui_proof.py` (the page ships the EN/HU/RO copy).
 - **The control panel now surfaces the app membrane, the authenticity gate, and licence
   status.** So the panel (`metaspace ui`) shows a real, visible change and you can drive every
   feature in one place: run a Python program under the **app membrane** (`/api/run` → the granted

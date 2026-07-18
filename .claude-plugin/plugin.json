@@ -6,5 +6,7 @@
   "description": "Deny-by-default agent membrane: a PreToolUse hook that keeps the coding agent inside a hardened .bio constitution (project-only writes, network host allowlist, dangerous-command block).",
   "author": { "name": "Szőke László-Ferenc", "email": "admin@metaspace.bio" },
   "homepage": "https://github.com/LemonScripter/metaspace-membrane",
-  "keywords": ["ai-safety", "guardrails", "hook", "sandbox", "agent-safety"]
+  "repository": "https://github.com/LemonScripter/metaspace-membrane",
+  "license": "LicenseRef-Proprietary",
+  "keywords": ["ai-safety", "guardrails", "hook", "sandbox", "agent-safety", "claude-code", "security"]
 }

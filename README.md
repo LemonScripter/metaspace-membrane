@@ -21,6 +21,21 @@ answer **deny-by-default**. One `.bio` constitution, three membranes, two produc
 
 ---
 
+## Screenshots
+
+**The Warden control panel** (`metaspace ui`) — a localhost web UI to configure the membrane
+per working directory. No config files to hand-edit; every project shows its mode
+(observe / dry-run / **enforcing**) at a glance.
+
+![MetaSpace Warden control panel](assets/panel.png)
+
+**The one-line pitch** — the agent can be *completely* deceived; the harmful effect still
+cannot occur.
+
+![MetaSpace Warden — deny-by-default containment layer](assets/landing.png)
+
+---
+
 ## Why
 
 You cannot prove that a generated program does the right thing (Rice's theorem — undecidable).
