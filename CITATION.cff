@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: "MetaSpace Membrane — a deterministic safety membrane for machine-generated software"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - family-names: "Szőke"
+    given-names: "László-Ferenc"
+    email: "admin@metaspace.bio"
+    affiliation: "MetaSpace.Bio Engine Project"
+repository-code: "https://github.com/LemonScripter/metaspace-membrane"
+url: "https://metaspace.bio"
+abstract: >-
+  MetaSpace Membrane turns an undecidable question — "is this AI doing the right
+  thing?" — into a decidable one — "is this effect inside the declared boundary?" —
+  and enforces the answer deny-by-default. One .bio constitution drives three
+  membranes (capability, value-invariant, epistemic) and two products (an app
+  membrane and an AI coding-agent membrane / Warden), each backed by reproducible
+  proofs. Containment, not correctness. Patent pending.
+keywords:
+  - ai-safety
+  - agent-safety
+  - guardrails
+  - capability-security
+  - webassembly
+  - deny-by-default
+license: BUSL-1.1
+version: 0.3.0
+date-released: "2026-07-18"
