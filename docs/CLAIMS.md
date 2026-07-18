@@ -64,6 +64,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | Usage telemetry is off by default, opt-in, anonymous, never stores code/paths/PII, and is never on the enforcement hot path | [PROVEN] | `run_telemetry_proof` (F4-3) | Win + Linux (2026-07-13) |
 | The panel offers type-to-search command autocomplete and an info list that explains every command; the catalogue is complete, alphabetical, and covers every shipped default | [PROVEN] | `run_commands_proof` + `run_ui_proof` (F4-4) | Win + Linux (2026-07-13) |
 | The panel also runs the app membrane (`/api/run`: granted effects allowed, undeclared blocked) and the authenticity gate (`/api/verify`: NO-EFFECTS / HIDDEN-EFFECT), and manages licence status (activate valid / reject invalid / remove), all localhost + token + same-origin | [PROVEN] | `run_ui_proof` (F4-5) | Win + Linux (2026-07-14) |
+| The Tools card ships a plain-language "How do these tools work?" help modal in EN/HU/RO, explaining how to use the authenticity gate (`verify`) and the app membrane (`run`) — including why they take a program's entry file | [PROVEN] | `run_ui_proof` (F4-6) | Win (2026-07-14); Linux re-run pending |
 
 ## Install claims (F1 — filled as each work item lands)
 | Claim | Type | Backed by | Verified |

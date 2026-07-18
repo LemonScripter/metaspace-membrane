@@ -309,11 +309,28 @@ dialog.modal2::backdrop{background:rgba(4,8,14,.62)}
 .cmdrow{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline}
 .cmdrow code{color:var(--warn);font-size:12.5px}.cmdrow span{color:var(--mut)}
 .cmdinfo-link{font-size:12px;color:var(--warn);text-decoration:none;margin-left:8px}
+.tglangs{display:flex;gap:6px;align-items:center}
+.tglang{background:#0e1526;border:1px solid var(--line);color:var(--mut);border-radius:7px;padding:3px 9px;font-size:12px;cursor:pointer}
+.tglang.active{color:#04122b;background:var(--warn);border-color:var(--warn);font-weight:600}
+.tg-body h4{margin:15px 0 4px;font-size:14px}
+.tg-body p{margin:4px 0;font-size:13px;color:var(--fg)}
+.tg-body .tg-intro{color:var(--mut)}
+.tg-body .tg-note{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);color:var(--mut);font-size:12.5px}
+.tg-body code{color:var(--warn);font-size:12px}.tg-body b{color:var(--fg)}
 </style>
 <dialog id="cmdinfo" class="modal2">
   <div class="m2head"><b>What can these commands do?</b><button class="mx2" onclick="document.getElementById('cmdinfo').close()" aria-label="Close">✕</button></div>
   <input id="cmdfilter" type="text" placeholder="filter commands…" oninput="renderCmdInfo(this.value)">
   <div id="cmdlist2" class="cmdlist2"></div>
+</dialog>
+<dialog id="toolsinfo" class="modal2">
+  <div class="m2head"><b>How do these tools work?</b>
+    <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <span class="tglangs"><button id="tglang-en" class="tglang" onclick="setToolsLang('en')">EN</button><button id="tglang-hu" class="tglang" onclick="setToolsLang('hu')">HU</button><button id="tglang-ro" class="tglang" onclick="setToolsLang('ro')">RO</button></span>
+      <button class="mx2" onclick="document.getElementById('toolsinfo').close()" aria-label="Close">✕</button>
+    </span>
+  </div>
+  <div id="tg-body" class="tg-body"></div>
 </dialog>
 <p class="foot">Settings are stored under <code>~/.claude</code> — outside your projects, so a
 prompt-injected agent cannot change or disable them. Restart Claude Code after changes.</p>
@@ -335,6 +352,41 @@ function openCmdInfo(){renderCmdInfo('');var d=document.getElementById('cmdinfo'
 function renderCmdInfo(q){q=(q||'').toLowerCase();
  document.getElementById('cmdlist2').innerHTML=CMDS.filter(c=>c.name.indexOf(q)>=0||c.desc.toLowerCase().indexOf(q)>=0)
   .map(c=>`<div class="cmdrow"><code>${c.name}</code><span>${c.desc}</span></div>`).join('')||'<div class="hint">No matching command.</div>';}
+const TOOLS_GUIDE={
+ en:`<p class="tg-intro">Both tools <b>run</b> the program you point them at (they don't just scan it), so you give the <b>one file you'd start with <code>python</code></b> — its entry point. That single file covers the whole run, including the files it imports. Currently they work on <b>Python</b> programs.</p>
+<h4>&#128269; Authenticity check — is a program real, or "slop"?</h4>
+<p><b>What it's for:</b> to tell whether an AI-written program actually <i>does</i> what it claims, or just looks finished while doing nothing.</p>
+<p><b>How to use it:</b> paste the path to the program's entry file (the <code>.py</code> you would run). It runs it inside a safe recording membrane — writes go to a throwaway sandbox, network and subprocess calls are blocked — and watches the <b>real effects</b>.</p>
+<p><b>What you get:</b> <b>CONSISTENT</b> — it does what it claims · <b>HOLLOW</b> — claims an effect but never even attempts it · <b>HIDDEN-EFFECT</b> — does undeclared risky things (network/subprocess) · <b>NO-EFFECTS</b> — pure computation.</p>
+<h4>&#128737;&#65039; Run under a membrane — it can only do what's allowed</h4>
+<p><b>What it's for:</b> to lock a finished program (even one an AI wrote) to its own rules, deny-by-default — so it can only produce the effects its constitution grants.</p>
+<p><b>How to use it:</b> paste the entry file <b>and</b> the folder that holds its rules (the working directory you added above). Writes, network and subprocess are checked against those rules: allowed ones really happen, everything else is blocked.</p>
+<p><b>What you get:</b> a count — <code>allowed: N · blocked: M</code> — plus what was blocked.</p>
+<div class="tg-note"><b>&#8505;&#65039; Good to know:</b> the authenticity check compares <i>claims vs. real effects</i>, not general correctness — a program can run and still be logically wrong. Reads never affect the verdict; only writes, network and subprocess do. Interactive/GUI scripts may need a headless run. For a hard boundary against untrusted <i>binaries</i> (not just Python), use the Landlock backend on Linux.</div>`,
+ hu:`<p class="tg-intro">Mindkét eszköz <b>lefuttatja</b> a programot, amelyre rámutatsz (nem csak beolvassa), ezért <b>azt az egy fájlt add meg, amit <code>python</code>-nal indítanál</b> — a belépőpontot. Ez az egy fájl lefedi az egész futást, a benne importált fájlokat is. Jelenleg <b>Python</b>-programokon működnek.</p>
+<h4>&#128269; Hitelesség-ellenőrzés — valódi a program, vagy csak „slop"?</h4>
+<p><b>Mire jó:</b> megmondja, hogy egy MI-írta program tényleg <i>megteszi-e</i>, amit állít, vagy csak késznek látszik, miközben semmit sem csinál.</p>
+<p><b>Hogyan használd:</b> írd be a program belépő fájljának útvonalát (a <code>.py</code>, amit indítanál). Egy biztonságos, rögzítő membrán alatt futtatja — az írások eldobható sandboxba mennek, a hálózat és az alfolyamat blokkolva —, és figyeli a <b>valós effekteket</b>.</p>
+<p><b>Mit kapsz:</b> <b>CONSISTENT</b> — azt teszi, amit állít · <b>HOLLOW</b> — állít egy effektet, de meg sem próbálja · <b>HIDDEN-EFFECT</b> — nem-deklarált kockázatos dolgot tesz (hálózat/alfolyamat) · <b>NO-EFFECTS</b> — tiszta számítás.</p>
+<h4>&#128737;&#65039; Futtatás membrán alatt — csak azt teheti, amit szabad</h4>
+<p><b>Mire jó:</b> egy kész programot (akár MI-írtat) a saját szabályaihoz zár, deny-by-default — így csak azokat az effekteket keltheti, amelyeket az alkotmánya megenged.</p>
+<p><b>Hogyan használd:</b> add meg a belépő fájlt <b>és</b> a mappát, amelyben a szabályai vannak (a fent hozzáadott munkakönyvtár). Az írást, hálózatot és alfolyamatot a szabályokhoz méri: az engedettek valóban megtörténnek, minden más blokkolva.</p>
+<p><b>Mit kapsz:</b> egy számot — <code>allowed: N · blocked: M</code> — plusz azt, hogy mit blokkolt.</p>
+<div class="tg-note"><b>&#8505;&#65039; Jó tudni:</b> a hitelesség-ellenőrzés az <i>állítást</i> veti össze a <i>valós effekttel</i>, nem az általános helyességet — egy program futhat úgy is, hogy logikailag hibás. Az olvasás sosem befolyásolja a verdiktet, csak az írás, a hálózat és az alfolyamat. Interaktív/GUI szkripthez headless futás kellhet. Nem megbízható <i>binárisok</i> (nem csak Python) kemény határához használd a Landlock backendet Linuxon.</div>`,
+ ro:`<p class="tg-intro">Ambele instrumente <b>rulează</b> programul pe care îl indici (nu doar îl scanează), așa că introduci <b>fișierul pe care l-ai porni cu <code>python</code></b> — punctul de intrare. Acest singur fișier acoperă întreaga rulare, inclusiv fișierele pe care le importă. Momentan funcționează pe programe <b>Python</b>.</p>
+<h4>&#128269; Verificarea autenticității — programul e real sau „slop"?</h4>
+<p><b>La ce folosește:</b> îți spune dacă un program scris de AI chiar <i>face</i> ce pretinde, sau doar pare terminat fără să facă nimic.</p>
+<p><b>Cum se folosește:</b> introdu calea către fișierul de intrare al programului (fișierul <code>.py</code> pe care l-ai rula). Îl rulează sub o membrană sigură de înregistrare — scrierile merg într-un sandbox temporar, rețeaua și subprocesele sunt blocate — și observă <b>efectele reale</b>.</p>
+<p><b>Ce primești:</b> <b>CONSISTENT</b> — face ce pretinde · <b>HOLLOW</b> — pretinde un efect, dar nici măcar nu-l încearcă · <b>HIDDEN-EFFECT</b> — face lucruri riscante nedeclarate (rețea/subproces) · <b>NO-EFFECTS</b> — calcul pur.</p>
+<h4>&#128737;&#65039; Rulare sub o membrană — poate face doar ce e permis</h4>
+<p><b>La ce folosește:</b> blochează un program finalizat (chiar și unul scris de AI) la propriile reguli, deny-by-default — astfel poate produce doar efectele permise de constituția sa.</p>
+<p><b>Cum se folosește:</b> introdu fișierul de intrare <b>și</b> folderul care conține regulile sale (directorul de lucru adăugat mai sus). Scrierile, rețeaua și subprocesele sunt verificate față de aceste reguli: cele permise chiar se întâmplă, restul sunt blocate.</p>
+<p><b>Ce primești:</b> un număr — <code>allowed: N · blocked: M</code> — plus ce a fost blocat.</p>
+<div class="tg-note"><b>&#8505;&#65039; Bine de știut:</b> verificarea autenticității compară <i>ce pretinde</i> cu <i>efectele reale</i>, nu corectitudinea generală — un program poate rula și totuși să fie greșit logic. Citirile nu afectează niciodată verdictul; doar scrierile, rețeaua și subprocesele. Scripturile interactive/GUI pot necesita rulare headless. Pentru o barieră dură împotriva <i>binarelor</i> nesigure (nu doar Python), folosește backendul Landlock pe Linux.</div>`};
+function renderToolsInfo(l){if(!TOOLS_GUIDE[l])l='en';document.getElementById('tg-body').innerHTML=TOOLS_GUIDE[l];
+ ['en','hu','ro'].forEach(x=>{var b=document.getElementById('tglang-'+x);if(b)b.className='tglang'+(x===l?' active':'')});}
+function setToolsLang(l){try{localStorage.setItem('ms_lang',l)}catch(e){}renderToolsInfo(l)}
+function openToolsInfo(){var l='en';try{l=localStorage.getItem('ms_lang')||'en'}catch(e){}renderToolsInfo(l);var d=document.getElementById('toolsinfo');if(d.showModal)d.showModal()}
 function esc(s){return (s||'').replace(/'/g,"")}
 async function load(){
  const d=await api('GET','/api/default');DEF=d.fields;
@@ -353,7 +405,7 @@ async function load(){
  await renderLicense();
 }
 function renderTools(){
- document.getElementById('tools').innerHTML=`<h3 style="margin:2px 0 8px">Tools</h3>
+ document.getElementById('tools').innerHTML=`<h3 style="margin:2px 0 8px">Tools <a href="#" class="cmdinfo-link" onclick="event.preventDefault();openToolsInfo()">&#9432; How do these work?</a></h3>
   <label>Authenticity check — is an AI-written program real, or "slop"?</label>
   <input type="text" id="vf" placeholder="C:/path/to/app.py">
   <div style="margin-top:8px"><button onclick="doVerify()">Check authenticity</button>

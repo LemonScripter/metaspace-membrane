@@ -148,6 +148,13 @@ def main():
     code, html = req(base, "GET", "/?token=" + token)
     check(code == 200 and "MetaSpace Warden" in html, "the panel page loads with a valid token")
 
+    # ---- Tools help modal ships the trilingual guide (EN/HU/RO) in the page ----
+    check('id="toolsinfo"' in html and "openToolsInfo" in html,
+          "the Tools help modal + trigger are present in the page")
+    check("Authenticity check" in html, "Tools guide includes the English (EN) copy")
+    check("Hitelesség-ellenőrzés" in html, "Tools guide includes the Hungarian (HU) copy")
+    check("Verificarea autenticității" in html, "Tools guide includes the Romanian (RO) copy")
+
     # ---- authenticity gate from the panel (/api/verify) ----
     hollow = os.path.join(HOME, "hollow.py")
     with open(hollow, "w", encoding="utf-8") as fh:
