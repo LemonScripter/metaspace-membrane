@@ -3,7 +3,7 @@
 **A deterministic safety membrane for machine-generated software.**
 
 ![proofs: reproducible](https://img.shields.io/badge/proofs-reproducible-brightgreen)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21426514.svg)](https://doi.org/10.5281/zenodo.21426514)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21438905.svg)](https://doi.org/10.5281/zenodo.21438905)
 ![License: BUSL-1.1](https://img.shields.io/badge/license-BUSL--1.1-blue)
 
 MetaSpace Membrane turns an *undecidable* question — *"is this AI doing the right thing?"* —

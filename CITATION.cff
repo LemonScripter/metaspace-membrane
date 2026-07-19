@@ -9,11 +9,11 @@ authors:
     affiliation: "MetaSpace.Bio Engine Project"
 repository-code: "https://github.com/LemonScripter/metaspace-membrane"
 url: "https://metaspace.bio"
-doi: "10.5281/zenodo.21426514"
+doi: "10.5281/zenodo.21438905"
 identifiers:
   - type: doi
-    value: "10.5281/zenodo.21426514"
-    description: "Zenodo archive of release v0.3.0"
+    value: "10.5281/zenodo.21438905"
+    description: "Zenodo archive of release v0.3.1"
 abstract: >-
   MetaSpace Membrane turns an undecidable question — "is this AI doing the right
   thing?" — into a decidable one — "is this effect inside the declared boundary?" —
@@ -29,5 +29,5 @@ keywords:
   - webassembly
   - deny-by-default
 license: BUSL-1.1
-version: 0.3.0
-date-released: "2026-07-18"
+version: 0.3.1
+date-released: "2026-07-19"
