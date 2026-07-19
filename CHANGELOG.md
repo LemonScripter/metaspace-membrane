@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com); the project uses semantic versioning.
 Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membrane[proofs]`).
 
+## [Unreleased]
+
+### Added
+- **Canonical agent-agnostic design & roadmap** (`docs/AGENT_AGNOSTIC_DESIGN.md`, decision I-47).
+  Plans the generalization from "the Claude Code Warden" to a universal effect-containment layer,
+  grounded in the existing harness-independent core. Two axes (agent breadth vs program breadth),
+  the `AgentAdapter` contract, an honest per-pattern guarantee ladder, a WordPress worked example
+  on the OS substrate, and the G1→G4 roadmap (AgentAdapter contract → MCP proxy → universal
+  substrate → WordPress PoC). No code change yet — this locks the canon before implementation.
+
 ## [0.3.1] — 2026-07-19 — Packaging fix
 
 ### Fixed
