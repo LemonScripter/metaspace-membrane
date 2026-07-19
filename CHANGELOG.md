@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com); the project uses semantic versioning.
 Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membrane[proofs]`).
 
+## [0.3.1] — 2026-07-19 — Packaging fix
+
+### Fixed
+- **`metaspace demo` / `metaspace install` failed from a pip install** ("cannot locate the
+  shipped hook/constitution"). The `session.constitution.bio` data file was not included in
+  the built wheel (setuptools ships only `.py` by default). Added `[tool.setuptools.package-data]`
+  so the shipped `.bio` constitution and the WASI `.wasm` guest are packaged. Verified end-to-end:
+  `pip install` into a clean venv → `metaspace demo` runs and blocks the attack.
+
 ## [0.3.0] — 2026-07-18 — Warden control panel, tools & open-core license
 
 ### Changed

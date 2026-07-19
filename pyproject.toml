@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metaspace-membrane"
-version = "0.3.0"
+version = "0.3.1"
 description = "A deterministic safety membrane for machine-generated software (MetaSpace.Bio Engine Project)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -45,3 +45,9 @@ Landing = "https://ai-membrane.metaspace.bio"
 [tool.setuptools]
 py-modules = ["cli"]
 packages = ["core", "products.app_membrane", "products.ai_membrane", "products.mcp_membrane"]
+
+[tool.setuptools.package-data]
+# Ship the non-.py data files the CLI needs at runtime (the demo/install flow reads the
+# shipped .bio constitution; the app membrane's WASI guest is a prebuilt .wasm).
+"products.ai_membrane" = ["*.bio"]
+"products.app_membrane" = ["*.wasm"]
