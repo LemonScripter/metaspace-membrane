@@ -61,7 +61,7 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 ## Install & try (60 seconds)
 
 ```bash
-pip install "git+https://github.com/LemonScripter/metaspace-membrane"
+pip install metaspace-membrane
 metaspace install     # user-level, starts in dry-run (observe, no blocking)
 metaspace demo        # live self-test: watch it block the attack, then `metaspace enforce`
 ```
