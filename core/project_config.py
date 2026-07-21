@@ -31,6 +31,49 @@ def projects_dir():
     return os.path.join(home_ms(), "projects")
 
 
+def defaults_path():
+    return os.path.join(home_ms(), "config.json")
+
+
+def load_defaults():
+    """User-level defaults (mode, constitution path) read from DISK, not from the environment.
+
+    Why this exists (O-13, measured 2026-07-21): `metaspace install` records the mode and the
+    constitution path in the `env` block of ~/.claude/settings.json, and Claude Code injects
+    those into the hook process. **Cursor does not** — it invokes the same hook but propagates
+    no env, so the hook silently fell back to its built-in defaults: enforcing instead of the
+    configured observe-mode, and the SHIPPED constitution instead of the user's own. A host that
+    honours the hook but not the env block must not quietly get different rules, so the settings
+    are mirrored to a file every host can read.
+    """
+    p = defaults_path()
+    if os.path.exists(p):
+        try:
+            with open(p, encoding="utf-8") as fh:
+                d = json.load(fh)
+            if isinstance(d, dict):
+                return d
+        except Exception:
+            pass
+    return {}
+
+
+def save_defaults(mode=None, bio=None):
+    """Merge-write the user-level defaults. Never raises; config is not the hot path."""
+    try:
+        d = load_defaults()
+        if mode is not None:
+            d["mode"] = str(mode).lower()
+        if bio is not None:
+            d["bio"] = str(bio).replace("\\", "/")
+        os.makedirs(home_ms(), exist_ok=True)
+        with open(defaults_path(), "w", encoding="utf-8") as fh:
+            json.dump(d, fh, indent=2, ensure_ascii=False)
+        return True
+    except Exception:
+        return False
+
+
 def registry_path():
     return os.path.join(home_ms(), "registry.json")
 

@@ -100,6 +100,8 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-51 | Synthesis is a static heuristic; the runtime membrane is the guarantee | N/A | STATED |
 | C-52 | One hook serves both Claude Code and Cursor with identical verdicts | N/A | PROVEN |
 | C-53 | Hard containment on agents beyond Claude Code and Cursor | HARD | BLOCKED |
+| C-54 | The user's mode + constitution reach a host that ignores `env` | N/A | PROVEN |
+| C-55 | Host binding is generated data, not hand-written per agent | N/A | PLANNED |
 
 ---
 
@@ -317,6 +319,37 @@ that is measured per effect kind.
 **PROOF:** `run_cursor_compat_proof` (P-CURSOR, 19 checks against a captured real payload)
 **VERIFIED:** Win (2026-07-21); Linux pending
 
+### C-54 — A host that does not propagate `env` still gets the user's mode and constitution
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **Resolves:** O-13
+**Measured problem:** `metaspace install` records the mode and constitution path in the `env`
+block of `~/.claude/settings.json`. Claude Code injects them; **Cursor invokes the same hook and
+injects nothing** (`mode_from_env=false`, `bio_from_env=false`). The hook fell back to built-in
+defaults — enforcing instead of the configured observe-mode, and the *shipped* constitution
+instead of the user's, so every rule set in `metaspace ui` silently did nothing on that host.
+**Fix:** the settings are mirrored to `~/.claude/metaspace/config.json`, which any host can read.
+Precedence: per-project registry → `env` (where the host provides it) → this file → built-in.
+Claude Code is unaffected because `env` still wins. `install` / `enforce` / `dryrun` write the
+mirror; `off` removes it. Each decision now records `mode_src` so a silent downgrade is visible.
+**PROOF:** `run_envless_config_proof` (P-ENVLESS) · **VERIFIED:** Win (2026-07-21); Linux pending
+
+### C-55 — A host's vocabulary binding is generated from the installed agent, not hand-written per agent
+**TIER:** N/A · **STATUS:** PLANNED · **DEPENDS:** C-44 · **Related:** C-38
+**Idea (user, 2026-07-21):** read an agent's own names/IDs once per installed version and bind
+them to the membrane automatically, instead of authoring an adapter per agent.
+**Design constraint that must hold:** the binding is a **separate artefact**, never part of the
+`.bio`. Putting host vocabulary into the constitution would couple policy to vendor internals,
+break portability across agents, and change the provenance fingerprint on every agent update —
+flipping RATIFIED to TAMPERED (O-3) each time the vendor ships.
+**Acceptance:** (a) the dialect/vocabulary table becomes data rather than code; (b) the first
+live invocation *confirms* the generated profile against what the host actually sends, and
+**fails closed** on mismatch rather than silently under-protecting; (c) the semantic map
+(name → effect kind) stays human-authored, per name, not per version.
+**Evidence it is needed and bounded:** static extraction produced the vocabulary and veto
+contracts correctly, but got the payload dialect, the BOM, `env` propagation and deny-honouring
+wrong — all four required a run. Detection can automate discovery; it cannot substitute for
+verification. The diagnostics added for C-52/C-54 already collect what (b) needs.
+**PROOF:** *(planned)*
+
 ---
 
 # Planned and blocked claims
@@ -432,7 +465,7 @@ enforcing on 2026-07-21 once every guarantee-bearing README paragraph traced to 
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
-| **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. | **empirical run** | OPEN | — |
+| **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. **Resolved by C-54** (settings mirrored to a file every host can read). | **empirical run** | RESOLVED | — |
 | **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | — |
 | **O-12** | Cursor's hook payload is **UTF-8 BOM-prefixed** and uses its own dialect (`hook_event_name` + `command`/`file_path`) even when the hook is registered via `~/.claude/settings.json`, and it takes the verdict from a JSON `permission` on stdout, ignoring Claude Code's exit-code-2 contract. Untreated, the Warden fail-closed on every Cursor tool call. **RESOLVED** by three fixes in `session_guard_hook.py`, proven by `run_cursor_compat_proof` against a captured payload. | empirical run | RESOLVED | — |
 

@@ -56,6 +56,14 @@ def main():
     r = subprocess.run([sys.executable, CLI, "install"], capture_output=True, text=True, env=base_env)
     if r.returncode != 0:
         print("FAIL: installer exit", r.returncode, r.stderr[:160]); return 1
+    # Fresh installs start in observe-mode (C-35), and since the O-13 fix that default reaches
+    # the hook from ~/.claude/metaspace/config.json even with no environment — so this proof must
+    # switch to enforcing the way a user does, rather than relying on env-absence to mean
+    # "enforce". Exercising the real CLI here also covers the mode flip end to end.
+    r = subprocess.run([sys.executable, CLI, "enforce"], capture_output=True, text=True, env=base_env)
+    if r.returncode != 0:
+        print("FAIL: `metaspace enforce` exit", r.returncode, r.stderr[:160]); return 1
+
     settings = json.load(open(os.path.join(home, ".claude", "settings.json"), encoding="utf-8"))
     installed_bio = settings["env"]["METASPACE_SESSION_BIO"]
     claude_settings = os.path.join(home, ".claude", "settings.json").replace("\\", "/")

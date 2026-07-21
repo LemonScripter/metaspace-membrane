@@ -54,6 +54,17 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   hook probe used to run the experiment.
 
 ### Fixed
+- **A host that ignores `env` silently got different rules (O-13 → C-54).** `metaspace install`
+  records the mode and constitution path in the `env` block of `~/.claude/settings.json`; Claude
+  Code injects them, Cursor does not. Measured: `mode_from_env=false`, `bio_from_env=false`. The
+  hook therefore fell back to built-in defaults — **enforcing instead of the configured
+  observe-mode**, so a Cursor user got hard blocking with no warning session, and the **shipped**
+  constitution instead of their own, so every rule set in `metaspace ui` silently did nothing
+  there. The settings are now mirrored to `~/.claude/metaspace/config.json`, which any host can
+  read. Precedence: per-project registry → `env` where provided → this file → built-in, so Claude
+  Code is unaffected. `install`/`enforce`/`dryrun` write the mirror and `off` removes it, and each
+  decision records `mode_src` so this class of silent downgrade is visible in the audit.
+  Proven by `run_envless_config_proof` (P-ENVLESS).
 - **The Warden denied every tool call under Cursor.** Cursor does invoke hooks registered in
   `~/.claude/settings.json` — verified by running it — but three assumptions inherited from
   Claude Code were wrong, and the hook fail-closed on all of them:

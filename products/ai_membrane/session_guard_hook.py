@@ -51,9 +51,32 @@ CLAUDE_HOME = os.path.expanduser("~/.claude").replace("\\", "/")
 # "enforce" (block). Fresh installs start in dryrun so the membrane never over-blocks on the
 # first session; the user reviews, then runs `metaspace enforce`. Default enforce if unset.
 # These are DEFAULTS; a per-project constitution/mode (if configured via the UI) overrides them.
-DEFAULT_MODE = os.environ.get("METASPACE_MODE", "enforce").strip().lower()
-DEFAULT_BIO = os.environ.get("METASPACE_SESSION_BIO",
-                             os.path.join(HERE, "session.constitution.bio"))
+def _user_defaults():
+    """Mode + constitution from ~/.claude/metaspace/config.json (O-13 fallback).
+
+    Not every host propagates the `env` block of settings.json — Cursor invokes this hook but
+    passes no environment, which silently downgraded the user's configuration to the built-in
+    defaults. Precedence, most specific first:
+        1. the per-project registry entry (resolved later, in main)
+        2. an explicit environment variable, when the host provides one (Claude Code)
+        3. this user-level file on disk, which every host can read
+        4. the built-in defaults
+    """
+    try:
+        sys.path.insert(0, REPO_ROOT)
+        from core.project_config import load_defaults
+        return load_defaults()
+    except Exception:
+        return {}
+
+
+_DEFAULTS = _user_defaults()
+DEFAULT_MODE = (os.environ.get("METASPACE_MODE")
+                or _DEFAULTS.get("mode")
+                or "enforce").strip().lower()
+DEFAULT_BIO = (os.environ.get("METASPACE_SESSION_BIO")
+               or _DEFAULTS.get("bio")
+               or os.path.join(HERE, "session.constitution.bio"))
 AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
                        os.path.join(PROJECT_ROOT, ".metaspace", "session_audit.jsonl"))
 
@@ -254,6 +277,9 @@ def main():
         "eff_mode": enforce_mode,
         "mode_from_env": "METASPACE_MODE" in os.environ,
         "bio_from_env": "METASPACE_SESSION_BIO" in os.environ,
+        # where the default actually came from, so an O-13-style silent downgrade is visible
+        "mode_src": ("env" if "METASPACE_MODE" in os.environ
+                     else "user-file" if _DEFAULTS.get("mode") else "built-in"),
     }
 
     tgt = target[:80] if kind == "SHELL" else target

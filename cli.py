@@ -237,6 +237,16 @@ def cmd_install(args):
     with open(settings_path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
 
+    # Mirror the settings to a file every host can read. Claude Code injects the `env` block
+    # above; Cursor invokes the same hook and injects nothing (O-13), which silently downgraded
+    # the user's configuration to the built-in defaults. The mirror is authoritative for any
+    # host that does not propagate env.
+    try:
+        from core import project_config
+        project_config.save_defaults(mode=env["METASPACE_MODE"], bio=bio_dest)
+    except Exception:
+        pass
+
     mode = env["METASPACE_MODE"]
     print("MetaSpace Warden installed (%s-level)." % scope)
     print("  settings.json:", settings_path)
@@ -286,6 +296,13 @@ def _set_mode(project, mode):
     settings["env"] = env
     with open(settings_path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
+
+    # keep the env-less mirror in step, or hosts that ignore env would stay on the old mode (O-13)
+    try:
+        from core import project_config
+        project_config.save_defaults(mode=mode)
+    except Exception:
+        pass
     _track(mode)
     print("MetaSpace mode -> %s (%s-level). Restart Claude Code to apply." % (mode, scope))
     return 0
@@ -413,6 +430,17 @@ def cmd_off(args):
 
     with open(settings_path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
+
+    # `metaspace off` must also remove the env-less mirror, or a host that ignores env (O-13)
+    # would keep reading a stale mode after the hook itself was unwired.
+    try:
+        from core import project_config
+        p = project_config.defaults_path()
+        if os.path.exists(p):
+            os.remove(p)
+            changed = True
+    except Exception:
+        pass
 
     if args.purge:
         ms_dir = os.path.join(claude_dir, "metaspace")
