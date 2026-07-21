@@ -1,0 +1,17 @@
+{
+  "_metaspace_probe": "MS_PROBE_HOME_AGY",
+  "_candidate_path": "~/.agy/hooks.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import pathlib;pathlib.Path(r'{{TEMP}}/agy_fired_home_agy.txt').write_text('fired')\""
+          }
+        ]
+      }
+    ]
+  }
+}

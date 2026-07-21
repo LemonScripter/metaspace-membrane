@@ -1,0 +1,17 @@
+{
+  "_metaspace_probe": "MS_PROBE_GEMINI_AGYCLI",
+  "_candidate_path": "~/.gemini/antigravity-cli/hooks.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import pathlib;pathlib.Path(r'{{TEMP}}/agy_fired_gemini_agycli.txt').write_text('fired')\""
+          }
+        ]
+      }
+    ]
+  }
+}

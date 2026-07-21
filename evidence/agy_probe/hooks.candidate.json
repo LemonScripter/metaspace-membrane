@@ -1,0 +1,18 @@
+{
+  "metaspace_warden": {
+    "description": "MetaSpace membrane - deny-by-default effect containment",
+    "enabled": true,
+    "type": "command",
+    "command": "python \"{{REPO}}/products/ai_membrane/session_guard_hook.py\"",
+    "timeout": 30,
+    "events": [
+      "PreToolUse"
+    ],
+    "tools": [
+      "run_shell_command",
+      "write_file",
+      "replace",
+      "read_file"
+    ]
+  }
+}
