@@ -102,6 +102,10 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-53 | Hard containment on agents beyond Claude Code and Cursor | HARD | BLOCKED |
 | C-54 | The user's mode + constitution reach a host that ignores `env` | N/A | PROVEN |
 | C-55 | Host binding is generated data, not hand-written per agent | N/A | PLANNED |
+| C-56 | Gemini CLI surveyed against the four variables | N/A | IN-PROGRESS |
+| C-57 | Hard containment on Gemini CLI, measured | HARD | BLOCKED |
+| C-58 | The panel shows each detected host, its mode and its achievable tier | N/A | PLANNED |
+| C-59 | Self-protection covers every known host anchor, structurally | HARD | PROVEN |
 
 ---
 
@@ -445,6 +449,70 @@ enforcing on 2026-07-21 once every guarantee-bearing README paragraph traced to 
    — **observe-mode first** (reports, does not fail), enforced only once the public surface is aligned.
 **PROOF:** *(in progress: `run_roadmap_proof`)*
 
+### C-56 — Gemini CLI surveyed against the four variables
+**TIER:** N/A · **STATUS:** IN-PROGRESS · **Extends:** C-44
+**Gemini CLI 0.50.0** (npm `@google/gemini-cli`), read from its **unminified** bundle — original
+source paths and comments intact, so extraction confidence is far higher than for Cursor.
+· **Ingress:** `BeforeTool` — *"Can intercept, validate, or modify tool calls"*; also
+  `BeforeModel`, `AfterModel`, `BeforeToolSelection`.
+· **Vocabulary:** events `BeforeTool/AfterTool/BeforeAgent/AfterAgent/SessionStart/SessionEnd/
+  PreCompress/Notification`; tools `run_shell_command`, `write_file`, `replace`, `read_file`,
+  `glob`, `grep`, `ls`.
+· **Egress:** `isBlockingDecision() = decision === "block" || decision === "deny"`; also
+  `continue: false` stops the agent, and a BeforeTool hook may rewrite the tool input. Verified
+  at the call site in `executeToolWithHooks`.
+· **Anchor:** `~/.gemini/settings.json`, `hooks.BeforeTool[]`; four sources — project, user,
+  system, extension.
+· Ships an official `gemini hooks migrate` that converts Claude Code hook configs.
+**Still missing:** an actual run. Static reading is stronger here than for Cursor, but the BOM
+class of surprise only appears at runtime.
+**DOCUMENTED-IN:** `docs/AGENT_SURVEY.md`
+
+### C-57 — Hard containment on Gemini CLI, measured
+**TIER:** HARD · **STATUS:** BLOCKED · **DEPENDS:** C-56 · **BLOCKED-BY:** O-1
+**CONDITION (required before this may be asserted):** the effect reaches the membrane through
+Gemini's `BeforeTool` step, Gemini honours a `decision: "deny"` verdict, **and** `~/.gemini` is
+itself inside a `FILESYSTEM deny` scope so the agent cannot uninstall the hook it is subject to.
+The third clause is not optional: without it the guarantee is self-undermining.
+**Why blocked, and it is not a formality:** Cursor was free because it *borrows* Claude's anchor
+(`~/.claude/settings.json`), so O-1 never bit. Gemini uses its own (`~/.gemini/settings.json`).
+Installing there without extending self-protection to that anchor would hand a deceived agent a
+fresh way to switch the membrane off — see O-14. HARD may not be asserted for Gemini until the
+anchor it is installed into is itself defended.
+**PROOF:** *(planned)*
+
+### C-58 — The control panel shows each detected host, its mode, and the tier actually achievable there
+**TIER:** N/A · **STATUS:** PLANNED · **DEPENDS:** C-56
+**Why this is load-bearing, not cosmetic:** the panel currently speaks of one host ("the folder
+where you run Claude Code") and shows a single protected/unprotected state. With three hosts
+whose achievable tiers differ per effect kind — Cursor's post-edit hooks are observational
+(O-11), Gemini's BeforeTool can even rewrite tool input — one combined indicator would be false.
+The TIER matrix the ledger enforces in text has to reach the surface the user actually looks at,
+or the hard/soft conflation returns through the UI.
+**Must also surface:** per-host install state (separate anchors, separate files) and host-specific
+caveats such as O-13.
+**PROOF:** *(planned)*
+
+### C-59 — Self-protection covers every known host's config anchor, and does not depend on the constitution's text
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-33 · **Resolves:** O-14
+**CONDITION:** the effect passes through the agent hook, and the host's anchor appears in
+`core/agent_anchors.py`. A host whose anchor is unknown to that list is not covered — adding a
+host means adding its anchor, and that is the one manual step this claim depends on.
+**Why it is enforced from code, not from the `.bio`:** the deny used to be a single
+`{{CLAUDE_HOME}}` line emitted into each generated constitution. That covered Claude Code and,
+by luck rather than design, Cursor — which reads the same `~/.claude/settings.json`. Gemini has
+its own anchor. A constitution written before a host existed cannot name it, and a hand-edited
+one may have had the line removed, so a text-based guarantee is one edit or one release behind.
+The hook now injects the anchor scopes into the guard's deny set directly. Anchors are only ever
+added to the DENY side, so a wrong entry over-blocks (loud, correctable) rather than opening a
+silent hole.
+**PROOF:** `run_multianchor_proof` (P-ANCHORS) — driven with a deliberately **legacy**
+constitution that denies only `{{CLAUDE_HOME}}`, in the worst case where the project is opened
+at the home directory so every anchor sits inside the granted write scope. `~/.cursor/hooks.json`
+and `~/.gemini/settings.json` are blocked anyway; reads still pass; a look-alike directory
+(`.claudette`) is not over-blocked.
+**VERIFIED:** Win (2026-07-21); Linux pending
+
 ---
 
 # Obstacle register
@@ -465,6 +533,7 @@ enforcing on 2026-07-21 once every guarantee-bearing README paragraph traced to 
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
+| **O-14** | **Self-protection covers only one anchor.** Every generated constitution denies `{{CLAUDE_HOME}}/**` (`core/bio_fields.py`), which defends the Claude Code config — and, because Cursor reads that same file, Cursor too. **Gemini uses its own anchor** (`~/.gemini/settings.json`). Installing into a new host without extending the deny to that host's anchor gives a deceived agent a fresh route to disable the membrane there: exactly the attack C-33 exists to stop. Also affects any per-project constitution written before a new anchor was known. **Resolved by C-59:** the anchors are injected from code, so constitutions written before a host existed — or hand-edited — are protected too. | verified in code | RESOLVED | — |
 | **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. **Resolved by C-54** (settings mirrored to a file every host can read). | **empirical run** | RESOLVED | — |
 | **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | — |
 | **O-12** | Cursor's hook payload is **UTF-8 BOM-prefixed** and uses its own dialect (`hook_event_name` + `command`/`file_path`) even when the hook is registered via `~/.claude/settings.json`, and it takes the verdict from a JSON `permission` on stdout, ignoring Claude Code's exit-code-2 contract. Untreated, the Warden fail-closed on every Cursor tool call. **RESOLVED** by three fixes in `session_guard_hook.py`, proven by `run_cursor_compat_proof` against a captured payload. | empirical run | RESOLVED | — |

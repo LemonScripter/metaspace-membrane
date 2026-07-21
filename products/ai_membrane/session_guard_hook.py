@@ -229,6 +229,17 @@ def main():
         # the hook is the single audit authority (it logs with tool + kind + target); the guard
         # must not double-log to the same file -> audit_path=False (in-memory decisions only).
         guard = Guard(bio, base_dir=PROJECT_ROOT, audit_path=False, provenance="RATIFIED")
+        # Self-protection is enforced from CODE, not from the constitution's text (O-14).
+        # The `.bio` still carries its own deny line for visibility, but the guarantee must not
+        # depend on it: a constitution written before a host existed cannot name that host's
+        # anchor, and a hand-edited one may have had the line deleted. Injecting the anchors here
+        # protects old and edited constitutions alike. This only ever ADDS to the deny side, so a
+        # wrong entry can over-block (loud) but never open a hole (silent).
+        try:
+            from core.agent_anchors import deny_scopes
+            guard.allowed.setdefault(("FILESYSTEM", "deny"), []).extend(deny_scopes())
+        except Exception:
+            pass
     except Exception as e:
         # cannot load the constitution -> the membrane is non-functional -> FAIL-CLOSED
         audit({"decision": "DENY", "reason": f"constitution load error ({e})", "fail": "closed"})

@@ -55,8 +55,19 @@ def bio_from_fields(fields, cell="Project"):
         out.append('    FILESYSTEM write "%s";' % s)
     for s in read:
         out.append('    FILESYSTEM read  "%s";' % s)
-    # self-protection: non-negotiable, injected regardless of UI input
+    # Self-protection: non-negotiable, injected regardless of UI input. Every known agent's
+    # config anchor is listed, not just Claude's — a host with an undefended anchor is a fresh
+    # way for a deceived agent to switch the membrane off there (O-14). These lines are for
+    # visibility; the hook injects the same scopes from code, so the guarantee does not depend
+    # on this text surviving an edit.
     out.append('    FILESYSTEM deny  "{{CLAUDE_HOME}}/**";')
+    try:
+        from core.agent_anchors import deny_lines
+        for line in deny_lines():
+            if "{{CLAUDE_HOME}}" not in line:
+                out.append(line)
+    except Exception:
+        pass
     if network:
         out.append('    NETWORK    out   %s;' % ", ".join('"%s"' % h for h in network))
     out.append("  }")

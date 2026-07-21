@@ -53,6 +53,22 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 - **`evidence/cursor_probe/`** — an agent capability detector prototype plus the behavioural
   hook probe used to run the experiment.
 
+### Security
+- **Self-protection now covers every known host's config anchor, structurally (O-14 → C-59).**
+  The deny that makes C-33 work ("a deceived agent cannot disable the membrane") named exactly
+  one location, `{{CLAUDE_HOME}}`. That covered Claude Code and — by luck rather than design —
+  Cursor, which reads the same `~/.claude/settings.json`. **Gemini CLI has its own anchor**
+  (`~/.gemini/settings.json`), so supporting it would have handed a deceived agent a fresh way to
+  switch the membrane off on that host: precisely the attack C-33 exists to stop, and one that
+  would recur with every host added. The anchors now live in `core/agent_anchors.py` and are
+  injected into the guard's deny set **from code**, not from the constitution's text — a
+  constitution written before a host existed cannot name it, and a hand-edited one may have had
+  the line deleted, so a text-based guarantee is always one edit or one release behind. Anchors
+  are only ever added to the deny side, so a wrong entry over-blocks loudly rather than opening
+  a silent hole. Proven by `run_multianchor_proof` (P-ANCHORS), driven with a deliberately
+  *legacy* constitution that denies only `{{CLAUDE_HOME}}`, in the worst case where the project
+  is opened at the home directory.
+
 ### Fixed
 - **A host that ignores `env` silently got different rules (O-13 → C-54).** `metaspace install`
   records the mode and constitution path in the `env` block of `~/.claude/settings.json`; Claude
