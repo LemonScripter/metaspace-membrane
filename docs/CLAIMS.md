@@ -103,7 +103,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-54 | The user's mode + constitution reach a host that ignores `env` | N/A | PROVEN |
 | C-55 | Host binding is generated data, not hand-written per agent | N/A | PLANNED |
 | C-56 | Gemini CLI surveyed against the four variables | N/A | IN-PROGRESS |
-| C-57 | Hard containment on Gemini CLI, measured | HARD | PLANNED |
+| C-57 | Hard containment on Gemini CLI, measured | HARD | BLOCKED |
 | C-58 | The panel shows each detected host, its mode and its achievable tier | N/A | PLANNED |
 | C-59 | Self-protection covers every known host anchor, structurally | HARD | PROVEN |
 | C-60 | Installing into a second host is merged, backed up and reversible | N/A | PROVEN |
@@ -482,7 +482,7 @@ class of surprise only appears at runtime.
 **DOCUMENTED-IN:** `docs/AGENT_SURVEY.md`
 
 ### C-57 — Hard containment on Gemini CLI, measured
-**TIER:** HARD · **STATUS:** PLANNED · **DEPENDS:** C-56, C-38
+**TIER:** HARD · **STATUS:** BLOCKED · **DEPENDS:** C-56, C-38 · **BLOCKED-BY:** O-18
 **CONDITION (required before this may be asserted):** the effect reaches the membrane through
 Gemini's `BeforeTool` step, Gemini honours a `decision: "deny"` verdict, **and** `~/.gemini` is
 itself inside a `FILESYSTEM deny` scope so the agent cannot uninstall the hook it is subject to.
@@ -582,6 +582,7 @@ run, shows the baseline neutralising it, and checks the runner actually passes i
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
+| **O-18** | **Gemini CLI can no longer authenticate on this account**, so its live run cannot be performed: `IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products.` The install side is done and verified (C-60), but no verdict can be measured, so no tier may be claimed. **This inverts the priority:** Gemini CLI is installable-but-unmeasurable, while Antigravity is the live successor product — measurable, but its config path is still unknown (O-16). Resolving O-16 is now the path forward, not a side quest. | **empirical run** | OPEN | C-57 |
 | **O-17** | The proof suite inherited the developer's own membrane configuration: most proofs never set `METASPACE_MODE` and relied on "unset means enforce". Once C-54 made the user-level config authoritative, a real config saying `dryrun` failed four core proofs — evidence that depended on the machine. **Resolved by C-61** (hermetic baseline in `run_proofs.py`). | **empirical run** | RESOLVED | — |
 | **O-16** | **Antigravity CLI (`agy`) is detected but not surveyable statically.** A 156 MB Go binary whose string table is fully concatenated, so — unlike Cursor's JS and Gemini's unminified bundle — the hooks config path cannot be read out. Evidence it *has* a hook system: `hooks.json` (19 occurrences), `PreToolUse`/`PostToolUse`, `"unsupported hook type: %q"`, `"No hooks.json found at %s"`, and a `hooks_manager.go` log line *loaded 0 named hooks from 0 hooks.json file(s)*. **Discovery method (cheap, empirical):** drop a marker `hooks.json` in each candidate location and watch that count go 0→1. Until then the profile records the path as unknown and install is refused (C-60). | verified in vendor binary | OPEN | a future Antigravity claim |
 | **O-15** | The membrane's own state (`project_config`, `license`, `telemetry`) lives under `~/.claude/metaspace` — inside *one host's* config directory. A Gemini-only user gets a stray `~/.claude` tree, and `metaspace off --purge` on the Claude side would delete state other hosts still rely on. Split out of O-1: architectural and a minor purge bug, **not** a security issue, and it blocks no claim. | verified in code | OPEN | — |
