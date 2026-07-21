@@ -163,14 +163,29 @@ def main():
         "afterFileEdit":        ("Write", "file_path"),
         "afterTabFileEdit":     ("Write", "file_path"),
     }
+    # Measured dialects (Cursor 3.12.17, 2026-07-21) — do not guess, these were observed:
+    #   claude   : {tool_name, tool_input}                     — Claude Code
+    #   native   : {hook_event_name: beforeShellExecution, …}  — Cursor's own hooks.json
+    #   hybrid   : BOTH — Cursor's Claude-compat path sends hook_event_name "preToolUse"
+    #              alongside Claude's tool_name/tool_input, plus cursor_version. It works
+    #              through the Claude fields; the Cursor metadata is extra, not a substitute.
+    #   unknown  : a host event we have no mapping for AND no Claude fields -> nothing to decide.
     host_event = event.get("hook_event_name", "")
-    if host_event in CURSOR_EVENTS and not event.get("tool_name"):
+    has_claude_fields = bool(event.get("tool_name"))
+    if not host_event:
+        dialect = "claude"
+    elif has_claude_fields:
+        dialect = "hybrid"
+    elif host_event in CURSOR_EVENTS:
+        dialect = "native"
         mapped_tool, field = CURSOR_EVENTS[host_event]
         value = event.get(field, "") or ""
         event = dict(event)
         event["tool_name"] = mapped_tool
         event["tool_input"] = ({"command": value} if mapped_tool == "Bash"
                                else {"file_path": value})
+    else:
+        dialect = "unknown"
 
     tool = event.get("tool_name", "")
     tin = event.get("tool_input", {}) or {}
@@ -209,7 +224,16 @@ def main():
     elif tool == "Bash":
         kind, mode, target = "SHELL", "exec", (tin.get("command", "") or "")
     else:
-        sys.exit(0)   # any other tool: not our scope -> let the normal permission flow proceed
+        # Not a mediated effect -> let the normal permission flow proceed. But RECORD it:
+        # an event the membrane did not recognise is exactly the blind spot that hides a host
+        # dialect we have not mapped yet (Cursor's payload shape was found this way). Passing
+        # something through silently is indistinguishable, in the audit, from never being called.
+        audit({"decision": "PASSTHROUGH", "reason": "event not in the mediated set",
+               "tool": tool or None,
+               "host_event": event.get("hook_event_name") or None,
+               "event_keys": sorted(event.keys())[:20]})
+        _emit("allow")
+        sys.exit(0)
 
     # --- one shared, harness-independent decision (same core the MCP broker uses) ---
     from core.agent_adapter import decide
@@ -217,17 +241,34 @@ def main():
     denylist = parse_bash_denylist(bio) if kind == "SHELL" else None
     ok, reason = decide(kind, mode, target, guard, allowset, denylist)
 
+    # Diagnostics recorded on EVERY decision, not just passthroughs. Two facts turned out to be
+    # invisible in the audit and had to be inferred: which dialect the host actually sent (a
+    # Cursor-shaped payload normalised to tool "Write" is indistinguishable from a Claude-shaped
+    # one), and which mode was really in force (Cursor does not propagate settings.json `env`,
+    # so a configured dryrun silently ran as the built-in enforce default). Inference is what we
+    # keep having to retract; record it instead.
+    diag = {
+        "dialect": dialect,
+        "host_event": host_event or None,
+        "host_version": event.get("cursor_version") or None,
+        "eff_mode": enforce_mode,
+        "mode_from_env": "METASPACE_MODE" in os.environ,
+        "bio_from_env": "METASPACE_SESSION_BIO" in os.environ,
+    }
+
     tgt = target[:80] if kind == "SHELL" else target
     if ok:
-        allow(f"{tool} {kind}/{mode}: {str(target)[:60]}", tool=tool, kind=kind, mode=mode, target=tgt)
+        allow(f"{tool} {kind}/{mode}: {str(target)[:60]}", tool=tool, kind=kind, mode=mode,
+              target=tgt, **diag)
     else:
         if enforce_mode == "dryrun":
             # observe-only: record what WOULD be blocked and warn loudly, but let it through so
             # the first session is never over-blocked. `metaspace enforce` turns on blocking.
             sys.stderr.write(f"[MEMBRANE DRY-RUN] would block ({kind}/{mode}): {reason}\n")
             allow(f"DRY-RUN would-block ({kind}/{mode}): {reason}",
-                  tool=tool, kind=kind, mode=mode, target=tgt, would_block=True)
-        deny(f"{tool} blocked ({kind}/{mode}): {reason}", tool=tool, kind=kind, mode=mode, target=tgt)
+                  tool=tool, kind=kind, mode=mode, target=tgt, would_block=True, **diag)
+        deny(f"{tool} blocked ({kind}/{mode}): {reason}", tool=tool, kind=kind, mode=mode,
+             target=tgt, **diag)
 
 
 if __name__ == "__main__":

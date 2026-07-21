@@ -32,7 +32,18 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   once the public surface was aligned — mirroring the membrane's own dry-run-then-enforce
   default. Falsification-tested: an untagged guarantee sentence makes it fail.
 
-- **Cursor host support in the Warden hook**, with `run_cursor_compat_proof` (P-CURSOR, 19
+- **Hard containment on a second agent, measured (C-39).** Cursor's agent was told to write
+  outside the granted scope using its file-editing tool; the membrane blocked it and the file
+  was never created — verified on disk, twice, across a Cursor restart. The audit records
+  `host_event=preToolUse`, `dialect=hybrid`, `host_version=3.12.17`. All four survey variables
+  are satisfied: Ingress = `preToolUse`, Vocabulary = 21 enumerated steps, Egress = block
+  observed, Anchor = `~/.claude` (already protected by C-33).
+- **Every hook decision now records how it was reached** — dialect, the host's own event name
+  and version, the mode actually in force, and whether the host propagated `env`. Two facts had
+  been invisible in the audit and had to be inferred, and inference is what kept getting
+  retracted: a Cursor-shaped payload normalised to tool `Write` was indistinguishable from a
+  Claude-shaped one, and a configured `dryrun` was silently running as the built-in `enforce`.
+- **Cursor host support in the Warden hook**, with `run_cursor_compat_proof` (P-CURSOR, 24
   checks) driving the real hook against a **captured Cursor payload** (PII-scrubbed, BOM intact
   — `evidence/fixtures/`). One hook now serves both hosts and reaches identical verdicts; the
   Claude Code contract is unchanged. Claimed as **C-52**, deliberately at `N/A` tier: this is

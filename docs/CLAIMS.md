@@ -85,7 +85,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-36 | `metaspace demo` blocks a real attack | N/A | PROVEN |
 | C-37 | Version parity across packaging surfaces | N/A | PROVEN |
 | C-38 | The decision core is agent-profiled (Anchor decoupled) | N/A | BLOCKED |
-| C-39 | Hard containment on a second, named AI agent | HARD | BLOCKED |
+| C-39 | Hard containment on a second, named AI agent (Cursor) | HARD | PROVEN |
 | C-40 | Any Linux process confined by its `.bio` | HARD | BLOCKED |
 | C-41 | MCP-mediated effects contained across MCP servers | — | BLOCKED |
 | C-42 | WordPress: compromised plugin cannot write core or exec | HARD | PLANNED |
@@ -99,6 +99,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-50 | Code→constitution synthesis closes the loop without a human step | N/A | PROVEN |
 | C-51 | Synthesis is a static heuristic; the runtime membrane is the guarantee | N/A | STATED |
 | C-52 | One hook serves both Claude Code and Cursor with identical verdicts | N/A | PROVEN |
+| C-53 | Hard containment on agents beyond Claude Code and Cursor | HARD | BLOCKED |
 
 ---
 
@@ -331,13 +332,30 @@ green) **and** a second profile with a different Anchor self-protects correctly.
 **PROOF:** *(planned: `run_profile_proof`)*
 
 ### C-39 — Hard containment on a second, named AI agent, with verdict-parity against the Claude Code hook
-**TIER:** HARD · **STATUS:** BLOCKED · **DEPENDS:** C-38 · **BLOCKED-BY:** O-2, O-7, O-11
-**CONDITION (required before this may be asserted):** the target agent must satisfy all four
-variables — Ingress, Vocabulary, Egress, and a lockable local **Anchor** (see C-33). If the
-Anchor condition fails, the honest claim is COOPERATIVE, not HARD.
-**Acceptance:** same `.bio`, same effects, same verdicts as the Claude hook — the pattern already
-proven by `run_mcp_e2e`.
-**PROOF:** *(planned: `run_<agent>_parity_proof`)*
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-38, C-52
+**Agent:** Cursor 3.12.17 (runtime version; `package.json` reports the fork's internal 2.3.35).
+**CONDITION:** the effect reaches the membrane through Cursor's `preToolUse` step, registered as
+a `PreToolUse` hook in `~/.claude/settings.json`, and Cursor honours the verdict. Measured for
+`FILESYSTEM/write`; **not** measured for every effect kind, and expressly not via the post-edit
+hooks (O-11).
+**Measured 2026-07-21:** Cursor's agent attempted a write outside the granted scope using its
+file-editing tool (not the terminal). It was blocked and **the file was never created** —
+verified on disk, twice, across a Cursor restart. Audit records `host_event=preToolUse`,
+`dialect=hybrid`, `host_version=3.12.17`.
+**Four variables, all satisfied:** Ingress = `preToolUse`; Vocabulary = 21 steps enumerated;
+Egress = block observed, file absent; Anchor = `~/.claude` (already protected by C-33).
+**PROOF:** `run_cursor_compat_proof` (P-CURSOR, 24 checks) · **VERIFIED:** Win (2026-07-21); Linux pending
+
+### C-53 — Hard containment on an agent other than Claude Code or Cursor
+**TIER:** HARD · **STATUS:** BLOCKED · **BLOCKED-BY:** O-1, O-2, O-5, O-7
+**Why this row exists:** C-39 was originally written as a generic "second agent" claim and
+inherited these blockers. Cursor turned out to need *none* of them resolved — same `~/.claude`
+Anchor (so O-1 never bit), no new adapter (O-2), a local host (O-5), and O-7 was discharged for
+Cursor specifically by the survey. The generic ambition is therefore split out here, keeping the
+obstacles attached to the claim they actually block rather than to one that is already proven.
+**CONDITION:** the four variables must be measured for each new agent, as in C-44 — a host that
+lacks a lockable local Anchor cannot reach HARD (O-5).
+**PROOF:** *(planned)*
 
 ### C-40 — Any Linux process, in any language, is confined to its `.bio`
 **TIER:** HARD · **STATUS:** BLOCKED · **BLOCKED-BY:** O-8
@@ -404,17 +422,18 @@ enforcing on 2026-07-21 once every guarantee-bearing README paragraph traced to 
 
 | ID | Obstacle | Evidence | Status | Blocks |
 |---|---|---|---|---|
-| **O-1** | The configuration Anchor `~/.claude` is hard-coded in five places: `core/project_config.py:27`, `core/license.py:106`, `core/telemetry.py:54`, `core/bio_fields.py:59`, `core/apprun.py:46` | verified in code | OPEN | C-38, C-39 |
-| **O-2** | `SHELL` is absent from `KINDS` (`core/guard.py:28`) and is handled on a separate path; the allow/deny parse is triplicated across `session_guard_hook.py:92-100`, `core/bio_fields.py:37-39`, `core/provenance.py:51`. Any new adapter mediating exec must re-implement it. | verified in code | OPEN | C-39, C-41 |
+| **O-1** | The configuration Anchor `~/.claude` is hard-coded in five places: `core/project_config.py:27`, `core/license.py:106`, `core/telemetry.py:54`, `core/bio_fields.py:59`, `core/apprun.py:46` | verified in code | OPEN | C-38, C-53 |
+| **O-2** | `SHELL` is absent from `KINDS` (`core/guard.py:28`) and is handled on a separate path; the allow/deny parse is triplicated across `session_guard_hook.py:92-100`, `core/bio_fields.py:37-39`, `core/provenance.py:51`. Any new adapter mediating exec must re-implement it. | verified in code | OPEN | C-53, C-41 |
 | **O-3** | Adding a capability kind changes the provenance fingerprint (`core/provenance.py:51`), which can flip existing RATIFIED constitutions to TAMPERED. Requires a migration, not an edit. | verified in code | OPEN | C-41 |
 | **O-4** | MCP tool vocabularies are open-world: tool names are server-defined and unbounded, so there is no sound mapping from a tool call to `(kind, mode, target)`. Schema/description inference would be heuristic classification — i.e. correctness, which this project rejects. | verified by design analysis | OPEN | C-41 |
-| **O-5** | For a hosted / SaaS agent the configuration Anchor lives server-side, so no local deny-scope can exist. The HARD tier is therefore structurally unreachable for such agents — a boundary, not a defect. | inferred; needs confirmation per agent | OPEN | C-39 |
+| **O-5** | For a hosted / SaaS agent the configuration Anchor lives server-side, so no local deny-scope can exist. The HARD tier is therefore structurally unreachable for such agents — a boundary, not a defect. | inferred; needs confirmation per agent | OPEN | C-53 |
 | **O-6** | The hard substrate tier is Linux-only (Landlock/seccomp). Windows and macOS have no equivalent in the current design. | verified in code | ACCEPTED-LIMIT | — |
-| **O-7** | The ingress mechanism and Anchor location of every candidate target agent (Cursor, Cline, Windsurf, …) are **unverified** — no claim about them may be planned on, let alone published. | not yet verified | OPEN | C-38, C-39, C-41 |
+| **O-7** | The ingress mechanism and Anchor location of every candidate target agent (Cursor, Cline, Windsurf, …) are **unverified** — no claim about them may be planned on, let alone published. | not yet verified | OPEN | C-38, C-53, C-41 |
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
-| **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | C-39 |
+| **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. | **empirical run** | OPEN | — |
+| **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | — |
 | **O-12** | Cursor's hook payload is **UTF-8 BOM-prefixed** and uses its own dialect (`hook_event_name` + `command`/`file_path`) even when the hook is registered via `~/.claude/settings.json`, and it takes the verdict from a JSON `permission` on stdout, ignoring Claude Code's exit-code-2 contract. Untreated, the Warden fail-closed on every Cursor tool call. **RESOLVED** by three fixes in `session_guard_hook.py`, proven by `run_cursor_compat_proof` against a captured payload. | empirical run | RESOLVED | — |
 
 ---

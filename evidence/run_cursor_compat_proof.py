@@ -159,6 +159,36 @@ def main():
     check(rc8 == 2, f"empty stdin still denies (got {rc8})")
     check(stdout_permission(out8) == "deny", "…and now tells Cursor so on stdout too")
 
+    # ------------------------------------------- 7. the audit distinguishes the two dialects
+    print("\n  7. the audit records WHICH dialect arrived (inference is what we keep retracting)")
+    audit_path = os.path.join(project, ".metaspace", "audit.jsonl")
+    recs = []
+    if os.path.exists(audit_path):
+        for line in open(audit_path, encoding="utf-8"):
+            try:
+                recs.append(json.loads(line))
+            except Exception:
+                pass
+    cursor_recs = [r for r in recs if r.get("dialect") == "native"]
+    claude_recs = [r for r in recs if r.get("dialect") == "claude"]
+    check(bool(cursor_recs), f"Cursor-native decisions are tagged dialect=native ({len(cursor_recs)})")
+    check(bool(claude_recs), f"Claude decisions are tagged dialect=claude ({len(claude_recs)})")
+    check(any(r.get("host_event") == "beforeShellExecution" for r in cursor_recs),
+          "the host's own event name is preserved in the audit")
+    check(all("eff_mode" in r for r in cursor_recs + claude_recs),
+          "every decision records the mode actually in force")
+    check(any(r.get("host_version") for r in cursor_recs),
+          "the host's runtime version is recorded when it sends one")
+
+    # the hybrid shape Cursor actually sends on its Claude-compat path (measured, not invented)
+    hybrid = {"hook_event_name": "preToolUse", "cursor_version": "3.12.17",
+              "tool_name": "Write", "tool_input": {"file_path": outside}}
+    rc9, out9, _ = run_hook(b"\xef\xbb\xbf" + json.dumps(hybrid).encode("utf-8"), project)
+    check(rc9 == 2, f"hybrid preToolUse payload: out-of-scope write blocked (got exit {rc9})")
+    recs2 = [json.loads(l) for l in open(audit_path, encoding="utf-8") if l.strip()]
+    check(any(r.get("dialect") == "hybrid" and r.get("host_event") == "preToolUse"
+              for r in recs2), "the hybrid dialect is recognised and labelled as such")
+
     print("\n" + "-" * 70)
     if failures:
         print(f"  RESULT: FAIL — {len(failures)} check(s) failed")
