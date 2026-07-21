@@ -7,12 +7,47 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased]
 
 ### Added
-- **Canonical agent-agnostic design & roadmap** (`docs/AGENT_AGNOSTIC_DESIGN.md`, decision I-47).
-  Plans the generalization from "the Claude Code Warden" to a universal effect-containment layer,
-  grounded in the existing harness-independent core. Two axes (agent breadth vs program breadth),
-  the `AgentAdapter` contract, an honest per-pattern guarantee ladder, a WordPress worked example
-  on the OS substrate, and the G1→G4 roadmap (AgentAdapter contract → MCP proxy → universal
-  substrate → WordPress PoC). No code change yet — this locks the canon before implementation.
+- **Agent-agnostic design rationale** (`docs/AGENT_AGNOSTIC_DESIGN.md`, decision I-47). Analyses
+  the generalization from "the Claude Code Warden" to a universal effect-containment layer,
+  grounded in the existing harness-independent core: two axes (agent breadth vs program breadth),
+  an honest per-pattern guarantee ladder, and a WordPress worked example on the OS substrate.
+  *(Its G1→G4 roadmap was superseded by I-48 below and now lives as ledger rows; the document is
+  rationale-only.)*
+- **One ledger: `docs/CLAIMS.md` is now the single source of truth for claims, plans and
+  blockers** (decision I-48). Forward-looking statements previously lived in seven documents,
+  none authoritative over the others, so the effective plan depended on which file you opened —
+  and "hard vs cooperative" was re-argued each time because it lived in prose. The existing claim
+  ledger was extended rather than replaced: stable append-only `C-nn` IDs, a **TIER enumeration**
+  (`HARD` / `COOPERATIVE` / `ADVISORY` / `N/A`) where every `HARD` claim must state its
+  CONDITION, a `STATUS`, `DEPENDS` / `BLOCKED-BY` references, and an **obstacle register**
+  (`O-nn`). All 37 shipped claims migrated with nothing lost; 14 more were added, including six
+  the README already asserted but the ledger did not cover (ratification, team/CI gate, epistemic
+  tiers, synthesis). Governing rule: the plan is never rewritten — rows are added or STATUS
+  changed with a reason.
+- **`evidence/run_roadmap_proof.py` (P-ROADMAP)** — the ledger's rules are mechanism now, not
+  discipline. Checks that every `PROVEN` claim names a runner registered in `run_proofs.py`, that
+  nothing is in progress on an unproven dependency, that an open obstacle forces its claims to
+  `BLOCKED`, that every `HARD` claim states a CONDITION, and that **every guarantee-bearing
+  README paragraph traces to a claim ID**. Shipped in observe mode, then flipped to enforcing
+  once the public surface was aligned — mirroring the membrane's own dry-run-then-enforce
+  default. Falsification-tested: an untagged guarantee sentence makes it fail.
+
+### Fixed
+- **A stale, factually wrong proof count in `README.md`.** It advertised "22/22 on Linux and
+  21 pass + 1 skip on Windows" long after the suite had grown past that. Replaced with a
+  count-free statement plus pointers to this changelog and the ledger, so the README cannot drift
+  out of date again. Found by the new I4 audit — the first defect the mechanism caught in
+  published copy.
+
+### Changed
+- **`docs/AGENT_AGNOSTIC_DESIGN.md` demoted to rationale-only**; its §8 now maps the old G1–G4
+  phases to ledger rows C-38…C-42. `docs/INSTALL_PLAN.md` marked historical (its work items
+  shipped as C-31…C-37). `evidence/DECISIONS.md` keeps a distinct genre: *why* we decided, not
+  *what* we will do.
+
+### Note
+- Deliberately unchanged: the **Zenodo record**. A documentation refactor is not a release and
+  must not mint a DOI version; `10.5281/zenodo.21438905` remains the immutable `v0.3.1` snapshot.
 
 ## [0.3.1] — 2026-07-19 — Packaging fix
 

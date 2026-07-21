@@ -1,6 +1,16 @@
-# Agent-Agnostic Membrane — Design & Roadmap (canonical)
+# Agent-Agnostic Membrane — Design Rationale
 
-**Status:** design canon (2026-07-19). Decision recorded as I-47 in `evidence/DECISIONS.md`.
+> ## ⚠️ This document no longer contains a plan
+> **The roadmap that used to live in §8 is void.** It has been dissolved into rows C-38…C-42 of
+> **`docs/CLAIMS.md`**, which is now the single source of truth for what the project claims,
+> plans, and is blocked by — machine-checked by `run_roadmap_proof` (P-ROADMAP).
+>
+> What remains here is **rationale**: the analysis of *why* the generalisation is shaped this
+> way. Rationale is durable; plans are not. Do not add a schedule, a phase list, or a priority
+> order to this file — add a row to the ledger instead. Recorded as I-48.
+
+**Status:** design rationale (2026-07-19; demoted to rationale-only 2026-07-21).
+Original decision: I-47. Superseding decision: I-48 in `evidence/DECISIONS.md`.
 **Thesis:** *containment, not correctness* — one `.bio` constitution, enforced at whatever
 boundary the effect-emitter exposes, deny-by-default.
 
@@ -148,23 +158,31 @@ WP compromise, without auditing any plugin.
 
 ---
 
-## 8. Roadmap (G-phases)
+## 8. Roadmap — moved to the ledger
 
-| Phase | Content | Note |
-|---|---|---|
-| **G1** | `AgentAdapter` contract (refactor, zero behavior change) + proof | everything else rides on it; hook + broker re-seated onto it |
-| **G2** | **MCP proxy** (interception) in front of real MCP servers + proof with a real MCP agent | Axis 1 — biggest ecosystem reach with one integration |
-| **G3** | **Universal substrate**: generalize `metaspace run` from one-shot Python to any process/language via Landlock/seccomp | Axis 2 — protects agent-made programs (partly exists: `run` / `verify`) |
-| **G4** | **WordPress PoC** on the G3 substrate (`php-fpm` confined; proof: "compromised plugin cannot write core / cannot exec") | Axis 2 applied, a separate PoC |
-| later | `DATABASE` kind · JS/TS SDK (decorator + Node MCP proxy) · per-host hook tables (Cursor/Cline/Aider) | as demand arrives |
+**The G1–G4 phase table that stood here is void (I-48).** It described work; the project now
+tracks *claims* instead, because a claim carries its own falsifiability while a phase does not.
 
-Each phase ships a new falsifiable proof in `run_proofs.py` (claim = proof).
+| Former phase | Now tracked as |
+|---|---|
+| G1 — `AgentAdapter` contract | **C-38** — the decision core is agent-profiled (Anchor is data) |
+| G2 — MCP proxy | **C-41** — effects through arbitrary MCP servers are contained |
+| G3 — universal substrate | **C-40** — any Linux process is confined to its `.bio` |
+| G4 — WordPress PoC | **C-42** — a compromised plugin cannot write core or exec |
+| — (newly surfaced) | **C-39** — hard containment on a second, named agent |
+| — (newly surfaced) | **C-44** — empirical four-variable survey of target agents |
 
-**Sequencing rationale:** G2 extends the just-launched product to the whole MCP ecosystem
-(maximal near-term adoption). G3 is the universal substrate — and it is the *same engine* that
-G4 (WordPress) rides on, so G3 is not a detour before WordPress; it is what makes WordPress a
-small PoC. Anti-regress: substrate targets (WordPress and others) stay separate PoCs so they
-never fork focus from the primary product line.
+Two things the phase table could not express, and the ledger does:
+
+1. **Preconditions are data.** Each row names the obstacles that block it (`O-1`…`O-10`), so an
+   obstacle discovered during analysis is recorded once and never rediscovered as "new".
+2. **Sequencing is not baked in.** The former table asserted G2-before-G3 on adoption grounds.
+   That ordering is a *decision*, not a property of the work, and it is not settled here — see
+   §4 and §6 for the analysis that bears on it. Priority is chosen against the ledger, where all
+   dependencies and blockers are visible at once.
+
+Each claim still ships a falsifiable proof in `run_proofs.py` (claim = proof) — now enforced by
+P-ROADMAP rather than by discipline.
 
 ---
 

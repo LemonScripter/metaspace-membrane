@@ -55,6 +55,7 @@ PROOFS = [
     ("MCP adapter-proof: same core, second harness (M2)", "evidence/run_mcp_e2e.py"),
     ("SandboxEnforcer: real program OS-confined by .bio (M3, Linux/Landlock)", "evidence/run_landlock_demo.py"),
     ("Team/CI gate: only a ratified, unbroadened .bio passes (M4)", "evidence/run_team_gate_e2e.py"),
+    ("Roadmap/claim ledger integrity: claim = proof, machine-checked", "evidence/run_roadmap_proof.py"),
 ]
 
 

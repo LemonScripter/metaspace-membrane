@@ -1,5 +1,10 @@
 # Warden — easy-install plan (F1: plugin-turnkey)
 
+> ## 📁 Historical — this plan is complete and no longer authoritative
+> The F1 work items shipped and are tracked as claims **C-31…C-37** in **`docs/CLAIMS.md`**,
+> which is the single source of truth for the project's claims, plans and blockers (I-48).
+> This file is kept for its reasoning and history. Do not plan from it.
+
 **Goal:** a developer protects their Claude Code agent against the Friendly-Fire class of
 attack in essentially one step, sees it working in seconds, and cannot have the protection
 silently disabled by a deceived agent.

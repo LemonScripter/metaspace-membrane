@@ -1,4 +1,4 @@
-# MetaSpace Membrane
+﻿# MetaSpace Membrane
 
 **A deterministic safety membrane for machine-generated software.**
 
@@ -8,7 +8,7 @@
 
 MetaSpace Membrane turns an *undecidable* question — *"is this AI doing the right thing?"* —
 into a *decidable* one — *"is this effect inside the declared boundary?"* — and enforces the
-answer **deny-by-default**. One `.bio` constitution, three membranes, two products.
+answer **deny-by-default**. One `.bio` constitution, three membranes, two products.<!-- claim: C-01 --><!-- claim: C-21 -->
 
 > Part of the **MetaSpace.Bio Engine Project** — Szőke László-Ferenc (admin@metaspace.bio).
 > **Patent pending.**
@@ -32,7 +32,7 @@ per working directory. No config files to hand-edit; every project shows its mod
 ![MetaSpace Warden control panel](assets/panel.png)
 
 **The one-line pitch** — the agent can be *completely* deceived; the harmful effect still
-cannot occur.
+cannot occur.<!-- claim: C-03 --><!-- claim: C-05 -->
 
 ![MetaSpace Warden — deny-by-default containment layer](assets/landing.png)
 
@@ -41,11 +41,12 @@ cannot occur.
 ## Why
 
 You cannot prove that a generated program does the right thing (Rice's theorem — undecidable).
-So we stop verifying intent and **contain effects** instead. A membrane sits at a chokepoint,
-reads the constitution, and blocks anything not explicitly granted. A bug becomes *a deviation
-from the constitution* — machine-measurable and enforceable.
+So we stop verifying intent and **contain effects** instead.<!-- claim: C-21 --> A membrane sits
+at a chokepoint, reads the constitution, and blocks anything not explicitly granted. A bug becomes
+*a deviation from the constitution* — machine-measurable and enforceable.
 
-The guarantee is only as hard as the chokepoint is unbypassable:
+The guarantee is only as hard as the chokepoint is unbypassable — each tier's exact strength and
+condition is recorded in [`docs/CLAIMS.md`](docs/CLAIMS.md):<!-- claim: C-01 --><!-- claim: C-02 --><!-- claim: C-15 -->
 
 ```
 heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
@@ -56,7 +57,7 @@ heuristic    ->  language guard  ->  harness hook  ->  WebAssembly
 > steered by a malicious repo into running a payload → RCE. We assume the model is *fully*
 > deceived and still make the effect unreachable. A real functional payload fires without the
 > membrane and never with it. See **[`docs/THREAT_FRIENDLY_FIRE.md`](docs/THREAT_FRIENDLY_FIRE.md)**
-> · reproduce with `python evidence/run_friendly_fire_proof.py`.
+> · reproduce with `python evidence/run_friendly_fire_proof.py`.<!-- claim: C-03 -->
 
 ## Install & try (60 seconds)
 
@@ -68,11 +69,11 @@ metaspace demo        # live self-test: watch it block the attack, then `metaspa
 
 ![`metaspace demo` — the "Friendly Fire" attack blocked live](assets/demo.gif)
 
-*`metaspace demo` running the real hook: the agent is assumed fully deceived, yet every attack effect is blocked while normal work still runs.*
+*`metaspace demo` running the real hook: the agent is assumed fully deceived, yet every attack effect is blocked while normal work still runs.*<!-- claim: C-36 -->
 
-Requires **Python 3.10+** (the hook has zero third-party dependencies — nothing else to install).
+Requires **Python 3.10+** (the hook has zero third-party dependencies — nothing else to install).<!-- claim: C-31 -->
 The membrane installs **outside any project's write scope**, so a prompt-injected agent cannot
-disable it. Full guide + honest scope: **[`docs/INSTALL.md`](docs/INSTALL.md)**.
+disable it.<!-- claim: C-33 --> Full guide + honest scope: **[`docs/INSTALL.md`](docs/INSTALL.md)**.
 
 ---
 
@@ -82,8 +83,8 @@ disable it. Full guide + honest scope: **[`docs/INSTALL.md`](docs/INSTALL.md)**.
 |---|---|---|
 | Contains | any application ⊂ its `.bio` | the coding assistant ⊂ its limits |
 | Chokepoint | WebAssembly capability import | Claude Code PreToolUse hook |
-| Guarantee | **unbypassable** (hard, WebAssembly only) | hard on the agent (sits outside it) |
-| Status | WebAssembly/WASI **or** OS-sandbox (Landlock): real native programs, kernel-contained | **Warden MVP** — install → enforce → report loop, proven end-to-end |
+| Guarantee | **unbypassable** (hard, WebAssembly only)<!-- claim: C-01 --> | hard on the agent (sits outside it)<!-- claim: C-02 --> |
+| Status | WebAssembly/WASI **or** OS-sandbox (Landlock): real native programs, kernel-contained<!-- claim: C-04 --> | **Warden MVP** — install → enforce → report loop, proven end-to-end<!-- claim: C-32 --> |
 
 Both are built on the same `core/` decision engine (`guard.py`) and the same `.bio` file.
 
@@ -97,7 +98,9 @@ the repo try (and fail) to prove itself hollow, and `python evidence/run_fuzz.py
 adversarial cases. They are demonstrated on **real programs** and fuzzed inputs, but at lab scale,
 by a single author, **without a third-party security audit or production users**. "Patent pending"
 refers to the underlying method; the two "products" are working **proofs-of-concept**, not shipped
-software. See [`SECURITY.md`](SECURITY.md) for the threat model and how to try to break it.
+software.<!-- claim: C-08 --> See [`SECURITY.md`](SECURITY.md) for the threat model and how to
+try to break it. Every claim above is tracked with its proof in
+[`docs/CLAIMS.md`](docs/CLAIMS.md).<!-- claim: C-45 -->
 
 ---
 
@@ -113,10 +116,13 @@ metaspace report path/to/audit.jsonl      # human-readable session safety report
 
 One entry point over the engine: `synthesize`, `ratify`, `gate`, `report`, `init`. Cross-platform
 by construction, and **verified on Linux**: `run_proofs.py` is green on Debian (kernel 6.1,
-Python 3.11) and on Windows — **22/22 on Linux** (including the kernel-enforced Landlock
-sandbox) and 21 pass + 1 skip on Windows (the Landlock proof runs only where the OS provides
-it). The runs also surfaced and fixed real bugs (a path-portability bug, a shared-parser bug).
-macOS is not yet verified (no host available) — see [`SECURITY.md`](SECURITY.md).
+Python 3.11) and on Windows — the full suite passes on both, with the Landlock proof skipped on
+Windows (it runs only where the OS provides it).<!-- claim: C-04 --> The runs also surfaced and
+fixed real bugs (a path-portability bug, a shared-parser bug). macOS is not yet verified (no host
+available) — see [`SECURITY.md`](SECURITY.md).<!-- claim: C-43 -->
+
+> Exact per-release counts live in [`CHANGELOG.md`](CHANGELOG.md); the ledger of every claim and
+> the proof backing it is [`docs/CLAIMS.md`](docs/CLAIMS.md).
 
 ---
 
@@ -159,7 +165,7 @@ No hosted CI required — the proof is a command anyone can run.
 **Warden** is the shipping product: a deny-by-default membrane for a Claude Code session. You
 install it, it enforces a hardened default constitution from *outside* the agent, and it leaves
 a session safety report. The whole loop is a reproducible proof
-(`python evidence/run_product_e2e.py`), driving the *real* hook over a realistic session:
+(`python evidence/run_product_e2e.py`), driving the *real* hook over a realistic session:<!-- claim: C-02 --><!-- claim: C-32 -->
 
 ```
 install the membrane  ->  the agent acts (writes, shell, fetches)
@@ -196,7 +202,7 @@ block reverts either method.
 The session constitution is deny-by-default: writes are limited to the project directory,
 outbound network to an allowlist, and dangerous shell patterns are blocked. The membrane logs
 every decision to `.metaspace/session_audit.jsonl` in the project; after a session, see what it
-blocked with:
+blocked with:<!-- claim: C-02 -->
 
 ```bash
 metaspace report          # reads ./.metaspace/session_audit.jsonl by default
@@ -209,14 +215,14 @@ Claude Code hook is just one thin adapter over it. A second adapter — a generi
 capability-broker** (`products/mcp_membrane/server.py`, a minimal JSON-RPC stdio server) —
 exposes *mediated effect tools* (`fs_write`, `fs_read`, `net_fetch`) to any MCP-capable agent,
 each gated by the same core, deny-by-default. `python evidence/run_mcp_e2e.py` drives both the
-hook and the broker over their real interfaces and shows they reach identical verdicts.
+hook and the broker over their real interfaces and shows they reach identical verdicts.<!-- claim: C-02 -->
 
 **Honest condition (the hard-vs-advisory line):** an MCP tool the agent may *voluntarily* call
 is only advisory — back to self-discipline, which does not contain a misaligned agent. The
 broker is *hard* only when the agent is deployed with its ambient authority removed, so the
 broker's tools are its **only** path to the filesystem/network. Under that condition the
 guarantee equals the hook's; the broker cannot constrain effects reached through some other
-unmediated tool.
+unmediated tool.<!-- claim: C-02 -->
 
 ### Team / CI: gate the constitution at merge time
 
@@ -238,7 +244,7 @@ repos:
     hooks: [{ id: metaspace-gate }]
 ```
 
-An unratified constitution, or one widened after ratifying (→ TAMPERED), fails the build.
+An unratified constitution, or one widened after ratifying (→ TAMPERED), fails the build.<!-- claim: C-47 -->
 `python evidence/run_team_gate_e2e.py` proves the whole flow with the real CLI. (Honest note:
 there is no hosted-CI badge — GitHub Actions is disabled on this repo — so the gate logic is
 proven locally and cross-OS instead, on Windows and real Linux.)
@@ -264,9 +270,9 @@ KNOWLEDGE {
 }
 ```
 
-- **Capability** — mediates effects on the world (deny-by-default).
+- **Capability** — mediates effects on the world (deny-by-default).<!-- claim: C-01 -->
 - **Value invariant** — guards safety bounds.
-- **Knowledge** — grounded facts only: no invented entities, no ungrounded actuation.
+- **Knowledge** — grounded facts only: no invented entities, no ungrounded actuation.<!-- claim: C-48 -->
 
 ---
 
@@ -282,8 +288,9 @@ python synthesize.py path/to/app --out app.constitution.bio
 
 `evidence/demos/run_synth_demo.py` runs the loop end-to-end: it synthesizes a constitution
 from a sample app, feeds it straight into the membrane, and shows the app can then only do
-what it declared — an effect it never had (a subprocess) is denied by default. This is a
-static heuristic; the runtime membrane, not the synthesis, is the guarantee.
+what it declared — an effect it never had (a subprocess) is denied by default.<!-- claim: C-50 -->
+This is a static heuristic; the runtime membrane, not the synthesis, is the
+guarantee.<!-- claim: C-51 -->
 
 Ratify a reviewed constitution (SYNTHESIZED 🟡 → RATIFIED 🟢):
 
@@ -293,7 +300,7 @@ python ratify.py app.constitution.bio --yes
 
 Ratification is **content-bound**: the stamp carries a fingerprint of the enforced policy, so
 a later edit that widens a scope or adds a capability is detected as TAMPERED 🔴 — you cannot
-ratify a policy and then quietly broaden it.
+ratify a policy and then quietly broaden it.<!-- claim: C-46 -->
 
 In production, gate the membrane on ratification — `Guard(..., require_ratified=True)` (or
 `core.gate`) runs **only** a RATIFIED constitution; a SYNTHESIZED or TAMPERED one is refused,
@@ -302,7 +309,7 @@ fail-closed. A policy is enforceable only after human ratification.
 Capabilities the dry-run learned are marked **provisional**: ratification is refused until each
 carries a written `JUSTIFY` reason — a per-item, read-gated justification that defeats
 rubber-stamping (`--yes` cannot bypass it). The code enforces the justification's *presence*,
-not its *truth*, so the human's judgement on the reason still matters.
+not its *truth*, so the human's judgement on the reason still matters.<!-- claim: C-46 -->
 
 ---
 
@@ -327,15 +334,18 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
   OS sandbox (**Landlock**, `products/app_membrane/sandbox_enforcer.py`) that confines a stock
   native program's filesystem writes to its `.bio` from the kernel. A language-level guard is
   bypassable and is not shipped as a product. The Landlock MVP confines *writes* (read/execute
-  unrestricted so any binary runs); it is Linux-only and fail-closed if unavailable.
+  unrestricted so any binary runs); it is Linux-only and fail-closed if
+  unavailable.<!-- claim: C-01 --><!-- claim: C-04 --><!-- claim: C-15 -->
 - The code→constitution synthesis is a static heuristic; a **dry-run learning mode**
   (`core/dryrun.py`) observes concrete runtime effects and augments the constitution *before*
   ratification, so it does not false-positive-block legitimate dynamic behaviour.
 - The agent membrane affects tool effects, not the model's prose; its shell check is a
-  **structural allowlist** (`core/shell_policy.py`) — obfuscation-resistant and fail-closed.
+  **structural allowlist** (`core/shell_policy.py`) — obfuscation-resistant and
+  fail-closed.<!-- claim: C-02 --><!-- claim: C-05 -->
 - The epistemic tier has two parts, named honestly: a **hard tier** that is a real
-  deterministic *membrane* (it contains/blocks), and a **soft tier** that is *not* a membrane but
-  an **advisory flag** (it qualifies/flags, never blocks). The reproducible threat-model matrix
+  deterministic *membrane* (it contains/blocks)<!-- claim: C-48 -->, and a **soft tier** that is
+  *not* a membrane but an **advisory flag** (it qualifies/flags, never blocks).<!-- claim: C-49 -->
+  The reproducible threat-model matrix
   (`evidence/demos/run_threat_matrix_demo.py`, rendered in `docs/ARCHITECTURE.md`) shows exactly
   what each layer catches — including where a schema-valid but fabricated statement passes the
   hard layers and is only flagged.
@@ -350,3 +360,4 @@ release. The only reserved use is offering a competing commercial safety-membran
 For commercial or competing-use licensing: admin@metaspace.bio.
 
 <sub>Designed and authored by Szőke László-Ferenc, with AI pair-programming assistance (Claude).</sub>
+
