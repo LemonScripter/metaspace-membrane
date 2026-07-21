@@ -108,11 +108,11 @@ def _emit(permission, reason=""):
     waiting for. Anything that understands neither is unaffected.
     """
     try:
-        out = {"permission": permission}
-        if permission == "deny" and reason:
-            out["user_message"] = f"[MEMBRANE BLOCK] {reason}"
-            out["agent_message"] = (f"Blocked by the MetaSpace membrane: {reason}. "
-                                    f"This effect is outside the constitution — do not retry it.")
+        try:
+            from core.hosts import verdict_payload
+            out = verdict_payload(permission, reason)
+        except Exception:
+            out = {"permission": permission}
         sys.stdout.write(json.dumps(out))
         sys.stdout.flush()
     except Exception:
@@ -178,14 +178,13 @@ def main():
     # NOT implied by the config file it came from. Normalise both onto Claude's shape here; the
     # decision core below is unchanged. (Cursor's vocabulary was read out of its own shipped
     # hooks/types.js — see docs/AGENT_SURVEY.md.)
-    CURSOR_EVENTS = {
-        "beforeShellExecution": ("Bash", "command"),
-        "afterShellExecution":  ("Bash", "command"),
-        "beforeReadFile":       ("Read", "file_path"),
-        "beforeTabFileRead":    ("Read", "file_path"),
-        "afterFileEdit":        ("Write", "file_path"),
-        "afterTabFileEdit":     ("Write", "file_path"),
-    }
+    # The per-host tables are DATA in core.hosts, not code here: three surveyed hosts differ only
+    # in spelling (PreToolUse / preToolUse / BeforeTool; Bash / run_shell_command; Write /
+    # write_file), never in meaning, so adding a host is a table entry.
+    try:
+        from core.hosts import HOST_EVENTS as CURSOR_EVENTS, canonical_tool
+    except Exception:
+        CURSOR_EVENTS, canonical_tool = {}, (lambda n: n)
     # Measured dialects (Cursor 3.12.17, 2026-07-21) — do not guess, these were observed:
     #   claude   : {tool_name, tool_input}                     — Claude Code
     #   native   : {hook_event_name: beforeShellExecution, …}  — Cursor's own hooks.json
@@ -210,7 +209,10 @@ def main():
     else:
         dialect = "unknown"
 
-    tool = event.get("tool_name", "")
+    # Gemini sends Claude-shaped {tool_name, tool_input} but with ITS OWN tool names
+    # (run_shell_command, write_file, replace, read_file). Alias them onto the canonical set so
+    # the effect mapping below stays one table, not one per host.
+    tool = canonical_tool(event.get("tool_name", ""))
     tin = event.get("tool_input", {}) or {}
 
     # resolve THIS project's constitution + mode (per-working-directory config, stored user-level

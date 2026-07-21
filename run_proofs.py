@@ -59,6 +59,7 @@ PROOFS = [
     ("Cursor host compatibility: one hook, two hosts, same verdicts", "evidence/run_cursor_compat_proof.py"),
     ("Env-less config: the user's mode + constitution reach every host (O-13)", "evidence/run_envless_config_proof.py"),
     ("Multi-anchor self-protection: every host's config is defended (O-14)", "evidence/run_multianchor_proof.py"),
+    ("Host profiles: agent differences are data, verdict reaches all (C-38)", "evidence/run_hostprofile_proof.py"),
 ]
 
 

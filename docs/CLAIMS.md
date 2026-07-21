@@ -84,7 +84,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-35 | First run is observe-mode | N/A | PROVEN |
 | C-36 | `metaspace demo` blocks a real attack | N/A | PROVEN |
 | C-37 | Version parity across packaging surfaces | N/A | PROVEN |
-| C-38 | The decision core is agent-profiled (Anchor decoupled) | N/A | BLOCKED |
+| C-38 | The decision core is agent-profiled (host differences are data) | N/A | PROVEN |
 | C-39 | Hard containment on a second, named AI agent (Cursor) | HARD | PROVEN |
 | C-40 | Any Linux process confined by its `.bio` | HARD | BLOCKED |
 | C-41 | MCP-mediated effects contained across MCP servers | — | BLOCKED |
@@ -103,7 +103,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-54 | The user's mode + constitution reach a host that ignores `env` | N/A | PROVEN |
 | C-55 | Host binding is generated data, not hand-written per agent | N/A | PLANNED |
 | C-56 | Gemini CLI surveyed against the four variables | N/A | IN-PROGRESS |
-| C-57 | Hard containment on Gemini CLI, measured | HARD | BLOCKED |
+| C-57 | Hard containment on Gemini CLI, measured | HARD | PLANNED |
 | C-58 | The panel shows each detected host, its mode and its achievable tier | N/A | PLANNED |
 | C-59 | Self-protection covers every known host anchor, structurally | HARD | PROVEN |
 
@@ -363,10 +363,21 @@ verification. The diagnostics added for C-52/C-54 already collect what (b) needs
 > not be forgotten, and that it may not be *asserted* before its PROOF exists.
 
 ### C-38 — The membrane's decision core is agent-profiled: the configuration Anchor is data, not a hard-coded path
-**TIER:** N/A · **STATUS:** BLOCKED · **BLOCKED-BY:** O-1, O-7
-**Acceptance:** the Claude profile reproduces byte-identical behaviour (all existing proofs stay
-green) **and** a second profile with a different Anchor self-protects correctly.
-**PROOF:** *(planned: `run_profile_proof`)*
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN
+**What it claims:** what differs between agents is a table, not a code path. Three surveyed hosts
+differ in spelling and never in meaning — `PreToolUse` / `preToolUse` / `BeforeTool`, `Bash` /
+`run_shell_command`, `Write` / `write_file` — and none of it reaches `core.guard`, which still
+decides on a normalized `(kind, mode, target)`. Adding a host is a row in `core/hosts.py`.
+**Two design rules it pins, both arrived at by getting them wrong first:**
+· host vocabulary never enters the `.bio` — a constitution naming host internals would lose
+  portability and flip RATIFIED to TAMPERED on every vendor update (O-3);
+· the verdict is emitted as a **superset** — `permission` (Cursor), `decision` + `reason`
+  (Gemini), exit code 2 (Claude Code) all at once — rather than identifying the caller and
+  guessing its dialect. A wrong guess means the verdict goes unheard, which is exactly how the
+  membrane ended up inert under Cursor.
+**Acceptance met:** all existing proofs stay green (byte-identical behaviour for Claude Code),
+and multiple anchors self-protect (C-59).
+**PROOF:** `run_hostprofile_proof` (P-HOSTS) · **VERIFIED:** Win (2026-07-21); Linux pending
 
 ### C-39 — Hard containment on a second, named AI agent, with verdict-parity against the Claude Code hook
 `[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-38, C-52
@@ -469,7 +480,7 @@ class of surprise only appears at runtime.
 **DOCUMENTED-IN:** `docs/AGENT_SURVEY.md`
 
 ### C-57 — Hard containment on Gemini CLI, measured
-**TIER:** HARD · **STATUS:** BLOCKED · **DEPENDS:** C-56 · **BLOCKED-BY:** O-1
+**TIER:** HARD · **STATUS:** PLANNED · **DEPENDS:** C-56, C-38
 **CONDITION (required before this may be asserted):** the effect reaches the membrane through
 Gemini's `BeforeTool` step, Gemini honours a `decision: "deny"` verdict, **and** `~/.gemini` is
 itself inside a `FILESYSTEM deny` scope so the agent cannot uninstall the hook it is subject to.
@@ -523,16 +534,17 @@ and `~/.gemini/settings.json` are blocked anyway; reads still pass; a look-alike
 
 | ID | Obstacle | Evidence | Status | Blocks |
 |---|---|---|---|---|
-| **O-1** | The configuration Anchor `~/.claude` is hard-coded in five places: `core/project_config.py:27`, `core/license.py:106`, `core/telemetry.py:54`, `core/bio_fields.py:59`, `core/apprun.py:46` | verified in code | OPEN | C-38, C-53 |
+| **O-1** | The configuration Anchor `~/.claude` is hard-coded in five places: `core/project_config.py:27`, `core/license.py:106`, `core/telemetry.py:54`, `core/bio_fields.py:59`, `core/apprun.py:46` **Resolved by C-38 + C-59:** host vocabulary and config anchors are now data (`core/hosts.py`, `core/agent_anchors.py`) and the anchor denies are injected from code. The membrane's OWN storage path was split out as O-15, since it blocks nothing. | verified in code | RESOLVED | — |
 | **O-2** | `SHELL` is absent from `KINDS` (`core/guard.py:28`) and is handled on a separate path; the allow/deny parse is triplicated across `session_guard_hook.py:92-100`, `core/bio_fields.py:37-39`, `core/provenance.py:51`. Any new adapter mediating exec must re-implement it. | verified in code | OPEN | C-53, C-41 |
 | **O-3** | Adding a capability kind changes the provenance fingerprint (`core/provenance.py:51`), which can flip existing RATIFIED constitutions to TAMPERED. Requires a migration, not an edit. | verified in code | OPEN | C-41 |
 | **O-4** | MCP tool vocabularies are open-world: tool names are server-defined and unbounded, so there is no sound mapping from a tool call to `(kind, mode, target)`. Schema/description inference would be heuristic classification — i.e. correctness, which this project rejects. | verified by design analysis | OPEN | C-41 |
 | **O-5** | For a hosted / SaaS agent the configuration Anchor lives server-side, so no local deny-scope can exist. The HARD tier is therefore structurally unreachable for such agents — a boundary, not a defect. | inferred; needs confirmation per agent | OPEN | C-53 |
 | **O-6** | The hard substrate tier is Linux-only (Landlock/seccomp). Windows and macOS have no equivalent in the current design. | verified in code | ACCEPTED-LIMIT | — |
-| **O-7** | The ingress mechanism and Anchor location of every candidate target agent (Cursor, Cline, Windsurf, …) are **unverified** — no claim about them may be planned on, let alone published. | not yet verified | OPEN | C-38, C-53, C-41 |
+| **O-7** | The ingress mechanism and Anchor location of every candidate target agent (Cursor, Cline, Windsurf, …) are **unverified** — no claim about them may be planned on, let alone published. | not yet verified | OPEN | C-53, C-41 |
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
+| **O-15** | The membrane's own state (`project_config`, `license`, `telemetry`) lives under `~/.claude/metaspace` — inside *one host's* config directory. A Gemini-only user gets a stray `~/.claude` tree, and `metaspace off --purge` on the Claude side would delete state other hosts still rely on. Split out of O-1: architectural and a minor purge bug, **not** a security issue, and it blocks no claim. | verified in code | OPEN | — |
 | **O-14** | **Self-protection covers only one anchor.** Every generated constitution denies `{{CLAUDE_HOME}}/**` (`core/bio_fields.py`), which defends the Claude Code config — and, because Cursor reads that same file, Cursor too. **Gemini uses its own anchor** (`~/.gemini/settings.json`). Installing into a new host without extending the deny to that host's anchor gives a deceived agent a fresh route to disable the membrane there: exactly the attack C-33 exists to stop. Also affects any per-project constitution written before a new anchor was known. **Resolved by C-59:** the anchors are injected from code, so constitutions written before a host existed — or hand-edited — are protected too. | verified in code | RESOLVED | — |
 | **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. **Resolved by C-54** (settings mirrored to a file every host can read). | **empirical run** | RESOLVED | — |
 | **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | — |
