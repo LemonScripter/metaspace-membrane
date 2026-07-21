@@ -61,6 +61,7 @@ PROOFS = [
     ("Multi-anchor self-protection: every host's config is defended (O-14)", "evidence/run_multianchor_proof.py"),
     ("Host profiles: agent differences are data, verdict reaches all (C-38)", "evidence/run_hostprofile_proof.py"),
     ("Multi-host install: merged, backed up, idempotent, refuses to guess", "evidence/run_multihost_install_proof.py"),
+    ("Hermeticity: the evidence does not depend on the machine (C-61)", "evidence/run_hermeticity_proof.py"),
 ]
 
 

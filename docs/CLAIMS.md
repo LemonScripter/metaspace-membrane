@@ -558,7 +558,9 @@ suite passes, where four proofs previously failed.
 **Side effect worth noting:** an installed Warden's environment used to leak into the suite and
 cause false failures, which required running it as `env -u METASPACE_MODE -u METASPACE_SESSION_BIO`.
 That workaround is no longer needed.
-**PROOF:** `run_proofs.py` itself (the baseline is the mechanism) · **VERIFIED:** Win (2026-07-21)
+**PROOF:** `run_hermeticity_proof` (P-HERMETIC) — reproduces the pollution against a real hook
+run, shows the baseline neutralising it, and checks the runner actually passes it to children.
+**VERIFIED:** Win (2026-07-21)
 
 ---
 
