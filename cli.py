@@ -194,7 +194,7 @@ def _install_host(host_id, hook_path, bio_dest, dry_run=False):
         return False, ("%s: no known config path — it must be found by experiment before the "
                        "membrane can be installed there (see its profile notes)" % profile["label"])
 
-    cfg = os.path.expanduser(profile["config"])
+    cfg = os.path.normpath(os.path.expanduser(profile["config"])).replace("\\", "/")
     settings = {}
     if os.path.exists(cfg):
         try:
@@ -254,11 +254,17 @@ def cmd_install(args):
         claude_dir = os.path.join(os.path.expanduser("~"), ".claude")
         scope = "user"
     ms_dir = os.path.join(claude_dir, "metaspace")
-    os.makedirs(ms_dir, exist_ok=True)
+    # --dry-run must cover the WHOLE command, not only --host. An earlier version guarded only
+    # the extra hosts, so `install --host X --dry-run` still performed a real Claude Code
+    # install — and because a fresh install resets the mode to dryrun, that could silently
+    # downgrade someone who was enforcing. A dry run that writes anything is not a dry run.
+    dry = bool(getattr(args, "dry_run", False))
+    if not dry:
+        os.makedirs(ms_dir, exist_ok=True)
 
     # editable constitution copy — never clobber a user-edited one unless --force
     bio_dest = os.path.join(ms_dir, "session.constitution.bio").replace("\\", "/")
-    if args.force or not os.path.exists(bio_dest):
+    if not dry and (args.force or not os.path.exists(bio_dest)):
         shutil.copyfile(bio_template, bio_dest)
 
     settings_path = os.path.join(claude_dir, "settings.json")
@@ -296,18 +302,20 @@ def cmd_install(args):
     pre.append(hook_entry)
     hooks["PreToolUse"] = pre
 
-    with open(settings_path, "w", encoding="utf-8") as fh:
-        json.dump(settings, fh, indent=2)
+    if not dry:
+        with open(settings_path, "w", encoding="utf-8") as fh:
+            json.dump(settings, fh, indent=2)
 
     # Mirror the settings to a file every host can read. Claude Code injects the `env` block
     # above; Cursor invokes the same hook and injects nothing (O-13), which silently downgraded
     # the user's configuration to the built-in defaults. The mirror is authoritative for any
     # host that does not propagate env.
-    try:
-        from core import project_config
-        project_config.save_defaults(mode=env["METASPACE_MODE"], bio=bio_dest)
-    except Exception:
-        pass
+    if not dry:
+        try:
+            from core import project_config
+            project_config.save_defaults(mode=env["METASPACE_MODE"], bio=bio_dest)
+        except Exception:
+            pass
 
     # --- additional hosts -------------------------------------------------------------------
     # Claude Code's config also drives Cursor, which reads the same settings.json. Gemini CLI has
@@ -325,7 +333,8 @@ def cmd_install(args):
             host_msgs.append(("  [OK] " if ok else "  [!!] ") + msg)
 
     mode = env["METASPACE_MODE"]
-    print("MetaSpace Warden installed (%s-level)." % scope)
+    print(("MetaSpace Warden — DRY RUN, nothing was written (%s-level)." if dry
+           else "MetaSpace Warden installed (%s-level).") % scope)
     print("  settings.json:", settings_path)
     print("  constitution :", bio_dest, "(edit to adjust scope / allowlist)")
     print("  mode         :", mode,

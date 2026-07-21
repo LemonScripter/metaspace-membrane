@@ -107,6 +107,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-58 | The panel shows each detected host, its mode and its achievable tier | N/A | PLANNED |
 | C-59 | Self-protection covers every known host anchor, structurally | HARD | PROVEN |
 | C-60 | Installing into a second host is merged, backed up and reversible | N/A | PROVEN |
+| C-61 | The proof suite is hermetic — results do not depend on the machine | N/A | PROVEN |
 
 ---
 
@@ -542,6 +543,23 @@ them has not helped. The properties matter more than the feature.
 **PROOF:** `run_multihost_install_proof` (P-INSTALL-HOSTS, 24 checks, throwaway HOME)
 **VERIFIED:** Win (2026-07-21); Linux pending
 
+### C-61 — The proof suite is hermetic: its result does not depend on the machine it runs on
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **Resolves:** O-17
+**How it was found:** after C-54 made the user-level config file authoritative for hosts that do
+not propagate `env`, four core proofs (`test_hook`, `run_friendly_fire_proof`, `run_product_e2e`,
+`run_mcp_e2e`) began failing on a machine whose real `~/.claude/metaspace/config.json` said
+`dryrun`. None of them set `METASPACE_MODE`; all silently relied on "unset means enforce". The
+proofs were reading the developer's own membrane configuration — so the evidence depended on the
+state of the machine producing it, which is precisely what `claim = proof` cannot tolerate.
+**Fix:** `run_proofs.py` pins a hermetic baseline for every child (`METASPACE_MODE=enforce`, no
+inherited `METASPACE_SESSION_BIO`). Proofs that exercise other modes set them on their own child
+environment and are unaffected. Verified with a developer config still set to `dryrun`: the whole
+suite passes, where four proofs previously failed.
+**Side effect worth noting:** an installed Warden's environment used to leak into the suite and
+cause false failures, which required running it as `env -u METASPACE_MODE -u METASPACE_SESSION_BIO`.
+That workaround is no longer needed.
+**PROOF:** `run_proofs.py` itself (the baseline is the mechanism) · **VERIFIED:** Win (2026-07-21)
+
 ---
 
 # Obstacle register
@@ -562,6 +580,7 @@ them has not helped. The properties matter more than the feature.
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
+| **O-17** | The proof suite inherited the developer's own membrane configuration: most proofs never set `METASPACE_MODE` and relied on "unset means enforce". Once C-54 made the user-level config authoritative, a real config saying `dryrun` failed four core proofs — evidence that depended on the machine. **Resolved by C-61** (hermetic baseline in `run_proofs.py`). | **empirical run** | RESOLVED | — |
 | **O-16** | **Antigravity CLI (`agy`) is detected but not surveyable statically.** A 156 MB Go binary whose string table is fully concatenated, so — unlike Cursor's JS and Gemini's unminified bundle — the hooks config path cannot be read out. Evidence it *has* a hook system: `hooks.json` (19 occurrences), `PreToolUse`/`PostToolUse`, `"unsupported hook type: %q"`, `"No hooks.json found at %s"`, and a `hooks_manager.go` log line *loaded 0 named hooks from 0 hooks.json file(s)*. **Discovery method (cheap, empirical):** drop a marker `hooks.json` in each candidate location and watch that count go 0→1. Until then the profile records the path as unknown and install is refused (C-60). | verified in vendor binary | OPEN | a future Antigravity claim |
 | **O-15** | The membrane's own state (`project_config`, `license`, `telemetry`) lives under `~/.claude/metaspace` — inside *one host's* config directory. A Gemini-only user gets a stray `~/.claude` tree, and `metaspace off --purge` on the Claude side would delete state other hosts still rely on. Split out of O-1: architectural and a minor purge bug, **not** a security issue, and it blocks no claim. | verified in code | OPEN | — |
 | **O-14** | **Self-protection covers only one anchor.** Every generated constitution denies `{{CLAUDE_HOME}}/**` (`core/bio_fields.py`), which defends the Claude Code config — and, because Cursor reads that same file, Cursor too. **Gemini uses its own anchor** (`~/.gemini/settings.json`). Installing into a new host without extending the deny to that host's anchor gives a deceived agent a fresh route to disable the membrane there: exactly the attack C-33 exists to stop. Also affects any per-project constitution written before a new anchor was known. **Resolved by C-59:** the anchors are injected from code, so constitutions written before a host existed — or hand-edited — are protected too. | verified in code | RESOLVED | — |

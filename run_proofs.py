@@ -74,10 +74,21 @@ def main():
     print("=" * 60)
     print("  MetaSpace Membrane â€” reproducible proofs")
     print("=" * 60)
+    # Hermetic baseline. The suite used to inherit the developer's own membrane configuration:
+    # most proofs never set METASPACE_MODE and silently relied on "unset means enforce". Once the
+    # user-level config file became authoritative for hosts that do not propagate env (C-54), a
+    # machine whose real config said `dryrun` made four core proofs fail — the evidence depended
+    # on the state of the machine running it, which is exactly what "claim = proof" must not
+    # tolerate. Pinning the baseline here makes the assumption explicit and the run reproducible.
+    # Proofs that exercise other modes set them on their own child environment and are unaffected.
+    base_env = dict(os.environ)
+    base_env["METASPACE_MODE"] = "enforce"
+    base_env.pop("METASPACE_SESSION_BIO", None)
+
     results = []
     for name, rel in PROOFS:
         p = subprocess.run([sys.executable, os.path.join(HERE, rel)],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, env=base_env)
         if p.returncode == 0 and "PROOF_SKIPPED" in (p.stdout or ""):
             status = "SKIP"      # e.g. an OS-specific proof on a platform that can't run it
         elif p.returncode == 0:

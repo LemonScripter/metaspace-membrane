@@ -85,6 +85,30 @@ def main():
         check(open(cfg, encoding="utf-8").read() == before, "the file is byte-identical after a dry-run")
         check(not os.path.exists(cfg + ".metaspace.bak"), "no backup is created by a dry-run")
 
+        # ------------------------------------- 0b. --dry-run covers the WHOLE command, not just --host
+        print("\n  0b. a dry run leaves the PRIMARY host untouched too")
+        # Regression guard for a real defect: --dry-run used to gate only the --host section, so
+        # `install --host X --dry-run` still performed a real Claude Code install. Because a fresh
+        # install resets the mode to dryrun, that could silently downgrade someone who was
+        # enforcing. A dry run that writes anything is not a dry run.
+        import argparse as _ap
+        claude_settings = os.path.join(home, ".claude", "settings.json")
+        os.makedirs(os.path.dirname(claude_settings), exist_ok=True)
+        pre_existing = {"env": {"METASPACE_MODE": "enforce"}, "hooks": {}}
+        with open(claude_settings, "w", encoding="utf-8") as fh:
+            json.dump(pre_existing, fh, indent=2)
+        ms_marker = os.path.join(home, ".claude", "metaspace")
+
+        args = _ap.Namespace(project=None, force=False, enforce=False,
+                             host="gemini-cli", dry_run=True)
+        rc = cli.cmd_install(args)
+        check(rc == 0, f"dry-run install exits cleanly (got {rc})")
+        after = json.load(open(claude_settings, encoding="utf-8"))
+        check(after == pre_existing,
+              "the primary host's settings.json is byte-identical — mode NOT reset to dryrun")
+        check(not os.path.isdir(ms_marker),
+              "no ~/.claude/metaspace directory was created by a dry run")
+
         # --------------------------------------------------------------------- 1. merge, not clobber
         print("\n  1. the install merges and preserves everything else")
         ok, msg = cli._install_host("gemini-cli", hookpath, "bio.bio")
