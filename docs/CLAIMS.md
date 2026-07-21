@@ -90,14 +90,15 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-41 | MCP-mediated effects contained across MCP servers | — | BLOCKED |
 | C-42 | WordPress: compromised plugin cannot write core or exec | HARD | PLANNED |
 | C-43 | Cross-OS verification on macOS | N/A | BLOCKED |
-| C-44 | Empirical four-variable survey of target agents | N/A | PLANNED |
-| C-45 | Roadmap and claim integrity is machine-checked | N/A | IN-PROGRESS |
+| C-44 | Empirical four-variable survey of target agents | N/A | IN-PROGRESS |
+| C-45 | Roadmap and claim integrity is machine-checked | N/A | PROVEN |
 | C-46 | Ratification is content-bound; only RATIFIED runs, fail-closed | HARD | PROVEN |
 | C-47 | Team/CI gate breaks the build on an unratified or widened `.bio` | N/A | PROVEN |
 | C-48 | Epistemic hard tier blocks ungrounded facts and actuation | HARD | PROVEN |
 | C-49 | Epistemic soft tier flags faithfulness and never blocks | ADVISORY | PROVEN |
 | C-50 | Code→constitution synthesis closes the loop without a human step | N/A | PROVEN |
 | C-51 | Synthesis is a static heuristic; the runtime membrane is the guarantee | N/A | STATED |
+| C-52 | One hook serves both Claude Code and Cursor with identical verdicts | N/A | PROVEN |
 
 ---
 
@@ -305,6 +306,16 @@ it is a closed-world check against the declared knowledge base.
 `[SCOPE-LIMIT]` · **TIER:** N/A · **STATUS:** STATED
 **DOCUMENTED-IN:** `README.md` (Synthesize a constitution from code), `docs/ARCHITECTURE.md`
 
+### C-52 — The same Warden hook runs under both Claude Code and Cursor and reaches identical verdicts on the same effects
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **DEPENDS:** C-02
+**Why N/A and not HARD:** this claims *dialect compatibility* — that one hook parses both hosts'
+payloads and answers in both contracts. It does **not** claim containment strength on Cursor:
+what Cursor actually enforces is bounded by O-11 (post-edit hooks are observational) and by
+which effects route through a blocking hook at all. A Cursor TIER may not be asserted until
+that is measured per effect kind.
+**PROOF:** `run_cursor_compat_proof` (P-CURSOR, 19 checks against a captured real payload)
+**VERIFIED:** Win (2026-07-21); Linux pending
+
 ---
 
 # Planned and blocked claims
@@ -320,7 +331,7 @@ green) **and** a second profile with a different Anchor self-protects correctly.
 **PROOF:** *(planned: `run_profile_proof`)*
 
 ### C-39 — Hard containment on a second, named AI agent, with verdict-parity against the Claude Code hook
-**TIER:** HARD · **STATUS:** BLOCKED · **DEPENDS:** C-38 · **BLOCKED-BY:** O-2, O-7
+**TIER:** HARD · **STATUS:** BLOCKED · **DEPENDS:** C-38 · **BLOCKED-BY:** O-2, O-7, O-11
 **CONDITION (required before this may be asserted):** the target agent must satisfy all four
 variables — Ingress, Vocabulary, Egress, and a lockable local **Anchor** (see C-33). If the
 Anchor condition fails, the honest claim is COOPERATIVE, not HARD.
@@ -355,14 +366,26 @@ updates require a wider maintenance scope.
 **PROOF:** *(planned: existing suite, run on macOS)*
 
 ### C-44 — An empirical, reproducible survey of target agents against the four variables
-**TIER:** N/A · **STATUS:** PLANNED · **Resolves:** O-7
+**TIER:** N/A · **STATUS:** IN-PROGRESS · **Resolves:** O-7 (partially)
 **Acceptance:** for each surveyed agent, all four variables recorded with the exact command,
 version and config path used to verify them — no inference, no vendor-documentation claims taken
 on trust.
-**PROOF:** *(planned: `docs/AGENT_SURVEY.md` with reproducible verification recipes)*
+**Progress:** **Cursor 2.3.35 surveyed** (2026-07-21) — all four variables recorded from the
+shipped bundle (`hooks/types.js` + `hooks/validators/*.js`), not from documentation. Result: a
+12-name closed hook vocabulary, real `permission: deny` veto on shell / MCP / file-read, a local
+lockable Anchor (`~/.cursor`), and **no pre-write hook** → O-11. Claude Code is the proven
+baseline. Cline / Windsurf / Aider / Continue / Copilot remain unsurveyed (not installed), so
+O-7 stays OPEN.
+**DOCUMENTED-IN:** `docs/AGENT_SURVEY.md`
+**PROOF:** *(planned: `run_survey_proof` — structural completeness of the survey: every listed
+agent has all four variables filled or explicitly marked unverified)*
 
 ### C-45 — The roadmap and claim ledger are machine-checked, not maintained by discipline
-**TIER:** N/A · **STATUS:** IN-PROGRESS
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN
+**PROOF:** `run_roadmap_proof` (P-ROADMAP) · **VERIFIED:** Win (2026-07-21); Linux pending
+**Falsification-tested:** an untagged guarantee sentence added to `README.md` makes the proof
+exit 1 with the correct reason; removing it restores PASS. I4 was flipped from observe to
+enforcing on 2026-07-21 once every guarantee-bearing README paragraph traced to a claim.
 **Acceptance — the four invariants:**
 1. every `PROVEN` row names a PROOF present in `run_proofs.py`;
 2. no row is `IN-PROGRESS` while any of its `DEPENDS` is not `PROVEN`;
@@ -391,6 +414,8 @@ on trust.
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
+| **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | C-39 |
+| **O-12** | Cursor's hook payload is **UTF-8 BOM-prefixed** and uses its own dialect (`hook_event_name` + `command`/`file_path`) even when the hook is registered via `~/.claude/settings.json`, and it takes the verdict from a JSON `permission` on stdout, ignoring Claude Code's exit-code-2 contract. Untreated, the Warden fail-closed on every Cursor tool call. **RESOLVED** by three fixes in `session_guard_hook.py`, proven by `run_cursor_compat_proof` against a captured payload. | empirical run | RESOLVED | — |
 
 ---
 

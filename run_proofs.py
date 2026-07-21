@@ -56,6 +56,7 @@ PROOFS = [
     ("SandboxEnforcer: real program OS-confined by .bio (M3, Linux/Landlock)", "evidence/run_landlock_demo.py"),
     ("Team/CI gate: only a ratified, unbroadened .bio passes (M4)", "evidence/run_team_gate_e2e.py"),
     ("Roadmap/claim ledger integrity: claim = proof, machine-checked", "evidence/run_roadmap_proof.py"),
+    ("Cursor host compatibility: one hook, two hosts, same verdicts", "evidence/run_cursor_compat_proof.py"),
 ]
 
 

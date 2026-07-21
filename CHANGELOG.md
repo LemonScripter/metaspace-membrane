@@ -32,7 +32,28 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   once the public surface was aligned — mirroring the membrane's own dry-run-then-enforce
   default. Falsification-tested: an untagged guarantee sentence makes it fail.
 
+- **Cursor host support in the Warden hook**, with `run_cursor_compat_proof` (P-CURSOR, 19
+  checks) driving the real hook against a **captured Cursor payload** (PII-scrubbed, BOM intact
+  — `evidence/fixtures/`). One hook now serves both hosts and reaches identical verdicts; the
+  Claude Code contract is unchanged. Claimed as **C-52**, deliberately at `N/A` tier: this is
+  dialect compatibility, *not* a containment-strength claim for Cursor (see O-11).
+- **`docs/AGENT_SURVEY.md`** — the empirical four-variable survey behind C-44, with the exact
+  commands used, and its own corrections recorded in place rather than quietly edited.
+- **`evidence/cursor_probe/`** — an agent capability detector prototype plus the behavioural
+  hook probe used to run the experiment.
+
 ### Fixed
+- **The Warden denied every tool call under Cursor.** Cursor does invoke hooks registered in
+  `~/.claude/settings.json` — verified by running it — but three assumptions inherited from
+  Claude Code were wrong, and the hook fail-closed on all of them:
+  1. Cursor prefixes its JSON payload with a **UTF-8 BOM**, which `json.loads` rejects → every
+     call became "unreadable input" → deny. Now decoded with `utf-8-sig` from raw bytes.
+  2. Cursor takes the verdict from a **JSON `permission` field on stdout** and ignores Claude
+     Code's exit-code-2 contract → even a decided block did nothing. The hook now emits both.
+  3. Cursor sends its **own payload dialect** (`hook_event_name` + `command`/`file_path`) even
+     when registered through Claude's settings file → after fixing (1) the hook would have found
+     no `tool_name` and silently allowed everything, which is worse than failing closed. A
+     dialect normalisation now maps both shapes onto the same effect vocabulary.
 - **A stale, factually wrong proof count in `README.md`.** It advertised "22/22 on Linux and
   21 pass + 1 skip on Windows" long after the suite had grown past that. Replaced with a
   count-free statement plus pointers to this changelog and the ledger, so the README cannot drift

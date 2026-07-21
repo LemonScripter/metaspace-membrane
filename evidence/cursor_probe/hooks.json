@@ -1,0 +1,18 @@
+{
+  "_comment": "Survey probe for Cursor. Copy to ~/.cursor/hooks.json and replace {{REPO}} with the absolute path to this repository (forward slashes). Remove the file to uninstall; Cursor caches hooks for the running session, so restart it to fully clear them. The probe allows everything except a command or path containing METASPACE_PROBE_DENY.",
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": "python \"{{REPO}}/evidence/cursor_probe/cursor_hook_probe.py\" beforeShellExecution" }
+    ],
+    "beforeMCPExecution": [
+      { "command": "python \"{{REPO}}/evidence/cursor_probe/cursor_hook_probe.py\" beforeMCPExecution" }
+    ],
+    "beforeReadFile": [
+      { "command": "python \"{{REPO}}/evidence/cursor_probe/cursor_hook_probe.py\" beforeReadFile" }
+    ],
+    "afterFileEdit": [
+      { "command": "python \"{{REPO}}/evidence/cursor_probe/cursor_hook_probe.py\" afterFileEdit" }
+    ]
+  }
+}

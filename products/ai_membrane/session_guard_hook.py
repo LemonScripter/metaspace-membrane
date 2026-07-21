@@ -74,10 +74,33 @@ def audit(rec):
         pass
 
 
+def _emit(permission, reason=""):
+    """Also answer in the JSON-on-stdout dialect.
+
+    Claude Code takes the verdict from the EXIT CODE (2 = block). Cursor reads a JSON object on
+    stdout with a `permission` field and ignores the exit code — verified empirically: this hook
+    exited 2 for every Cursor tool call and the operations proceeded anyway.
+
+    Emitting both is additive: Claude Code still sees exit 2, Cursor now sees the deny it was
+    waiting for. Anything that understands neither is unaffected.
+    """
+    try:
+        out = {"permission": permission}
+        if permission == "deny" and reason:
+            out["user_message"] = f"[MEMBRANE BLOCK] {reason}"
+            out["agent_message"] = (f"Blocked by the MetaSpace membrane: {reason}. "
+                                    f"This effect is outside the constitution — do not retry it.")
+        sys.stdout.write(json.dumps(out))
+        sys.stdout.flush()
+    except Exception:
+        pass          # the verdict must never depend on being able to write stdout
+
+
 def allow(reason, **extra):
     rec = {"decision": "ALLOW", "reason": reason}
     rec.update(extra)
     audit(rec)
+    _emit("allow")
     sys.exit(0)
 
 
@@ -86,6 +109,7 @@ def deny(reason, **extra):
     rec.update(extra)
     audit(rec)
     sys.stderr.write(f"[MEMBRANE BLOCK] {reason}\n")
+    _emit("deny", reason)
     sys.exit(2)
 
 
@@ -107,7 +131,13 @@ def host_of(url):
 
 def main():
     try:
-        raw = sys.stdin.read()
+        # Read BYTES, not text, and strip a UTF-8 BOM if present. Cursor prefixes its hook
+        # payload with EF BB BF; plain json.loads() rejects that, which made this hook
+        # fail-closed on EVERY Cursor tool call (verified against a captured payload — see
+        # evidence/fixtures/cursor_beforeShellExecution.json). A membrane that cannot parse its
+        # host denies everything, which is safe but useless.
+        data = sys.stdin.buffer.read()
+        raw = data.decode("utf-8-sig") if isinstance(data, (bytes, bytearray)) else str(data)
         if not raw.strip():
             raise ValueError("empty stdin")
         event = json.loads(raw)
@@ -116,7 +146,31 @@ def main():
         audit({"decision": "DENY", "reason": f"unreadable input ({e})", "fail": "closed"})
         sys.stderr.write(f"[MEMBRANE BLOCK] session-hook: unreadable input ({e}) "
                          f"-> deny-by-default (fail-closed)\n")
+        _emit("deny", f"unreadable input ({e})")
         sys.exit(2)
+
+    # --- which host dialect is this? -------------------------------------------------------
+    # Claude Code sends {tool_name, tool_input}. Cursor sends {hook_event_name, command|file_path}
+    # even when the hook was registered through ~/.claude/settings.json, so the payload shape is
+    # NOT implied by the config file it came from. Normalise both onto Claude's shape here; the
+    # decision core below is unchanged. (Cursor's vocabulary was read out of its own shipped
+    # hooks/types.js — see docs/AGENT_SURVEY.md.)
+    CURSOR_EVENTS = {
+        "beforeShellExecution": ("Bash", "command"),
+        "afterShellExecution":  ("Bash", "command"),
+        "beforeReadFile":       ("Read", "file_path"),
+        "beforeTabFileRead":    ("Read", "file_path"),
+        "afterFileEdit":        ("Write", "file_path"),
+        "afterTabFileEdit":     ("Write", "file_path"),
+    }
+    host_event = event.get("hook_event_name", "")
+    if host_event in CURSOR_EVENTS and not event.get("tool_name"):
+        mapped_tool, field = CURSOR_EVENTS[host_event]
+        value = event.get(field, "") or ""
+        event = dict(event)
+        event["tool_name"] = mapped_tool
+        event["tool_input"] = ({"command": value} if mapped_tool == "Bash"
+                               else {"file_path": value})
 
     tool = event.get("tool_name", "")
     tin = event.get("tool_input", {}) or {}
@@ -142,6 +196,7 @@ def main():
         audit({"decision": "DENY", "reason": f"constitution load error ({e})", "fail": "closed"})
         sys.stderr.write(f"[MEMBRANE BLOCK] session-hook: constitution load error ({e}) "
                          f"-> deny-by-default (fail-closed)\n")
+        _emit("deny", f"constitution load error ({e})")
         sys.exit(2)
 
     # --- map the Claude Code tool event onto a normalized effect (kind, mode, target) ---
