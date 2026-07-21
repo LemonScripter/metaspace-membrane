@@ -99,9 +99,29 @@ HOST_PROFILES = {
         "config": "~/.gemini/settings.json",
         "config_kind": "gemini-settings",       # hooks.BeforeTool[]
         "pre_tool_event": "BeforeTool",
+        # matcher uses Gemini's own tool names, exactly as its `hooks migrate` rewrites them
+        "matcher": "run_shell_command|write_file|replace|read_file",
         "verdict": "json-decision",             # {"decision": "block"|"deny"|"ask", "reason": …}
         "propagates_env": None,                 # UNMEASURED — do not assume either way
         "notes": "Surveyed (C-56); no live run yet, so no tier may be claimed (C-57).",
+    },
+    "antigravity": {
+        "label": "Antigravity CLI (agy)",
+        "detect": ["~/.gemini/antigravity-cli", "~/AppData/Local/agy"],
+        # UNKNOWN on purpose. The binary is a 156 MB Go executable whose string table is fully
+        # concatenated, so the path cannot be read out statically the way Cursor's and Gemini's
+        # could. It logs `hooks_manager.go: loaded N named hooks from M hooks.json file(s)`, so
+        # the location is discoverable by experiment: drop a marker hooks.json in each candidate
+        # and watch M go from 0 to 1. Until that run happens this stays None and no install is
+        # attempted — guessing a config path is how you silently write a file nothing reads.
+        "config": None,
+        "config_kind": None,
+        "pre_tool_event": "PreToolUse",         # inferred from strings; NOT verified
+        "matcher": None,
+        "verdict": None,
+        "propagates_env": None,
+        "notes": "Detected but NOT surveyable statically (Go binary). Config path unknown — "
+                 "must be found by experiment before any install. See O-16.",
     },
 }
 
@@ -124,19 +144,44 @@ def detect():
     out = []
     for hid, p in HOST_PROFILES.items():
         installed = any(os.path.isdir(_expand(d)) for d in p["detect"])
-        cfg = _expand(p["config"])
+        # a host may be detected without its config location being known (Antigravity): report
+        # that honestly rather than inventing a path
+        cfg = _expand(p["config"]) if p.get("config") else None
         out.append({
             "id": hid,
             "label": p["label"],
             "installed": installed,
             "config": cfg,
-            "config_exists": os.path.exists(cfg),
+            "config_exists": bool(cfg) and os.path.exists(cfg),
             "pre_tool_event": p["pre_tool_event"],
             "verdict": p["verdict"],
             "propagates_env": p["propagates_env"],
             "notes": p["notes"],
         })
     return out
+
+
+def install_entry(host_id, hook_command, timeout=30):
+    """The hook entry to merge into a host's config, in that host's own shape.
+
+    Gemini's config is structurally identical to Claude's — same
+    `{matcher, hooks:[{type, command, timeout}]}` shape — only the event name and the tool names
+    in the matcher differ. That is not a coincidence: Gemini ships `gemini hooks migrate`, which
+    converts a Claude config by renaming exactly those two things. Returns
+    (event_name, entry) or (None, None) when the host cannot be installed into.
+    """
+    p = HOST_PROFILES.get(host_id) or {}
+    if not p.get("config") or not p.get("matcher"):
+        return None, None
+    return p["pre_tool_event"], {
+        "matcher": p["matcher"],
+        "hooks": [{"type": "command", "command": hook_command, "timeout": timeout}],
+    }
+
+
+def installable():
+    """Hosts we can install into today — i.e. those whose config path is actually known."""
+    return [h for h, p in HOST_PROFILES.items() if p.get("config") and p.get("matcher")]
 
 
 def verdict_payload(permission, reason=""):

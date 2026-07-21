@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MetaSpace.Bio Engine Project — reproducible proof runner.
+MetaSpace.Bio Engine Project â€” reproducible proof runner.
 
 Runs every membrane proof and reports PASS/FAIL. This is the evidence: no hosted CI
-required — clone the repo and run one command.
+required â€” clone the repo and run one command.
 
     pip install wasmtime
     python run_proofs.py          # exit 0 if all proofs pass
@@ -60,6 +60,7 @@ PROOFS = [
     ("Env-less config: the user's mode + constitution reach every host (O-13)", "evidence/run_envless_config_proof.py"),
     ("Multi-anchor self-protection: every host's config is defended (O-14)", "evidence/run_multianchor_proof.py"),
     ("Host profiles: agent differences are data, verdict reaches all (C-38)", "evidence/run_hostprofile_proof.py"),
+    ("Multi-host install: merged, backed up, idempotent, refuses to guess", "evidence/run_multihost_install_proof.py"),
 ]
 
 
@@ -71,7 +72,7 @@ def main():
         return 2
 
     print("=" * 60)
-    print("  MetaSpace Membrane — reproducible proofs")
+    print("  MetaSpace Membrane â€” reproducible proofs")
     print("=" * 60)
     results = []
     for name, rel in PROOFS:
@@ -113,3 +114,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

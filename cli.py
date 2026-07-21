@@ -17,6 +17,7 @@ Windows; Linux/macOS CI is a stated pending gap (see STATUS / SECURITY).
 import os
 import sys
 import json
+import shutil
 import argparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -171,6 +172,67 @@ def cmd_init(args):
     return 0
 
 
+def _install_host(host_id, hook_path, bio_dest, dry_run=False):
+    """Merge the Warden hook into another host's config file.
+
+    Three safety properties, in order of how much damage their absence would do:
+      * NON-CLOBBERING — the existing config is read and merged; every unrelated setting and
+        every third-party hook is preserved. Only entries that are ours are touched.
+      * BACKED UP — a `.metaspace.bak` copy is written before the first modification, so a bad
+        merge is recoverable without git or a reinstall.
+      * IDEMPOTENT — a prior MetaSpace entry is removed before the new one is appended, so
+        running install twice does not stack duplicate hooks.
+
+    Returns (ok, message).
+    """
+    from core import hosts as _hosts
+    profile = _hosts.HOST_PROFILES.get(host_id)
+    if not profile:
+        return False, "unknown host id %r" % host_id
+    event, entry = _hosts.install_entry(host_id, 'python "%s"' % hook_path)
+    if not event:
+        return False, ("%s: no known config path — it must be found by experiment before the "
+                       "membrane can be installed there (see its profile notes)" % profile["label"])
+
+    cfg = os.path.expanduser(profile["config"])
+    settings = {}
+    if os.path.exists(cfg):
+        try:
+            with open(cfg, encoding="utf-8-sig") as fh:      # some hosts write a BOM
+                settings = json.load(fh) or {}
+        except Exception as e:
+            return False, "%s: %s is not valid JSON (%s) — refusing to overwrite it" % (
+                profile["label"], cfg, e)
+
+    hooks = settings.setdefault("hooks", {})
+    existing = hooks.get(event, [])
+    kept = [h for h in existing if "session_guard_hook" not in json.dumps(h)]
+    dropped = len(existing) - len(kept)
+    kept.append(entry)
+    hooks[event] = kept
+
+    if dry_run:
+        return True, ("%s: WOULD write %s\n    event: %s   matcher: %s\n    (preserving %d other "
+                      "hook(s); replacing %d previous MetaSpace entr%s)"
+                      % (profile["label"], cfg, event, entry["matcher"],
+                         len(kept) - 1, dropped, "y" if dropped == 1 else "ies"))
+
+    os.makedirs(os.path.dirname(cfg), exist_ok=True)
+    if os.path.exists(cfg):
+        bak = cfg + ".metaspace.bak"
+        if not os.path.exists(bak):
+            shutil.copy2(cfg, bak)
+    with open(cfg, "w", encoding="utf-8") as fh:
+        json.dump(settings, fh, indent=2, ensure_ascii=False)
+
+    try:
+        from core import project_config
+        project_config.save_defaults(bio=bio_dest)
+    except Exception:
+        pass
+    return True, "%s: hook wired into %s (event %s)" % (profile["label"], cfg, event)
+
+
 def cmd_install(args):
     """Wire the Warden PreToolUse membrane into Claude Code. USER-level by default (~/.claude):
     the membrane's own config then lives OUTSIDE any project's write-scope, so the same
@@ -247,12 +309,31 @@ def cmd_install(args):
     except Exception:
         pass
 
+    # --- additional hosts -------------------------------------------------------------------
+    # Claude Code's config also drives Cursor, which reads the same settings.json. Gemini CLI has
+    # its own, so it is wired separately and only on request.
+    host_msgs = []
+    wanted = getattr(args, "host", None)
+    if wanted:
+        from core import hosts as _hosts
+        ids = _hosts.installable() if wanted == "all" else [wanted]
+        ids = [h for h in ids if h != "claude-code"]          # already done above
+        if not ids:
+            host_msgs.append("  (no additional host to wire — %r is not installable)" % wanted)
+        for hid in ids:
+            ok, msg = _install_host(hid, hook, bio_dest, dry_run=getattr(args, "dry_run", False))
+            host_msgs.append(("  [OK] " if ok else "  [!!] ") + msg)
+
     mode = env["METASPACE_MODE"]
     print("MetaSpace Warden installed (%s-level)." % scope)
     print("  settings.json:", settings_path)
     print("  constitution :", bio_dest, "(edit to adjust scope / allowlist)")
     print("  mode         :", mode,
           "— observes and warns but does NOT block yet" if mode == "dryrun" else "— blocking")
+    if host_msgs:
+        print("  other hosts  :")
+        for m in host_msgs:
+            print("  " + m)
     if scope == "user":
         print("  applies to   : every Claude Code project on this machine")
     else:
@@ -698,6 +779,11 @@ def build_parser():
     ins.add_argument("--force", action="store_true", help="overwrite an existing installed constitution")
     ins.add_argument("--enforce", action="store_true",
                      help="install already blocking (skip the default dry-run/observe first run)")
+    ins.add_argument("--host", metavar="ID", default=None,
+                     help="also wire another detected host (e.g. gemini-cli), or 'all' for every "
+                          "host whose config location is known")
+    ins.add_argument("--dry-run", action="store_true",
+                     help="show what --host would write, without touching any file")
     ins.set_defaults(fn=cmd_install)
 
     en = sub.add_parser("enforce", help="turn on blocking (leave dry-run/observe mode)")

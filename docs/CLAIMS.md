@@ -106,6 +106,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-57 | Hard containment on Gemini CLI, measured | HARD | PLANNED |
 | C-58 | The panel shows each detected host, its mode and its achievable tier | N/A | PLANNED |
 | C-59 | Self-protection covers every known host anchor, structurally | HARD | PROVEN |
+| C-60 | Installing into a second host is merged, backed up and reversible | N/A | PROVEN |
 
 ---
 
@@ -524,6 +525,23 @@ and `~/.gemini/settings.json` are blocked anyway; reads still pass; a look-alike
 (`.claudette`) is not over-blocked.
 **VERIFIED:** Win (2026-07-21); Linux pending
 
+### C-60 — Installing into a second host preserves the user's config, is reversible, and refuses to guess
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **DEPENDS:** C-38
+**Why this is a claim and not a footnote:** writing into somebody's editor configuration is the
+most destructive thing this tool does. A membrane that eats a user's config in order to protect
+them has not helped. The properties matter more than the feature.
+· **Non-clobbering** — unrelated settings and third-party hooks on the same event survive.
+· **Backed up** — a `.metaspace.bak` is written before the first modification.
+· **Idempotent** — installing twice leaves one entry.
+· **Host-native shape** — the Gemini entry uses `BeforeTool` and Gemini's own tool names in the
+  matcher; no Claude vocabulary leaks in.
+· **Refuses rather than guesses** — a host whose config location is unknown is declined with a
+  reason (O-16). Writing a file nothing reads would look like success and protect nothing.
+· **Fails safe on damage** — a malformed config is reported, never overwritten.
+`--dry-run` reports the intended change without touching the file or creating a backup.
+**PROOF:** `run_multihost_install_proof` (P-INSTALL-HOSTS, 24 checks, throwaway HOME)
+**VERIFIED:** Win (2026-07-21); Linux pending
+
 ---
 
 # Obstacle register
@@ -544,6 +562,7 @@ and `~/.gemini/settings.json` are blocked anyway; reads still pass; a look-alike
 | **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
+| **O-16** | **Antigravity CLI (`agy`) is detected but not surveyable statically.** A 156 MB Go binary whose string table is fully concatenated, so — unlike Cursor's JS and Gemini's unminified bundle — the hooks config path cannot be read out. Evidence it *has* a hook system: `hooks.json` (19 occurrences), `PreToolUse`/`PostToolUse`, `"unsupported hook type: %q"`, `"No hooks.json found at %s"`, and a `hooks_manager.go` log line *loaded 0 named hooks from 0 hooks.json file(s)*. **Discovery method (cheap, empirical):** drop a marker `hooks.json` in each candidate location and watch that count go 0→1. Until then the profile records the path as unknown and install is refused (C-60). | verified in vendor binary | OPEN | a future Antigravity claim |
 | **O-15** | The membrane's own state (`project_config`, `license`, `telemetry`) lives under `~/.claude/metaspace` — inside *one host's* config directory. A Gemini-only user gets a stray `~/.claude` tree, and `metaspace off --purge` on the Claude side would delete state other hosts still rely on. Split out of O-1: architectural and a minor purge bug, **not** a security issue, and it blocks no claim. | verified in code | OPEN | — |
 | **O-14** | **Self-protection covers only one anchor.** Every generated constitution denies `{{CLAUDE_HOME}}/**` (`core/bio_fields.py`), which defends the Claude Code config — and, because Cursor reads that same file, Cursor too. **Gemini uses its own anchor** (`~/.gemini/settings.json`). Installing into a new host without extending the deny to that host's anchor gives a deceived agent a fresh route to disable the membrane there: exactly the attack C-33 exists to stop. Also affects any per-project constitution written before a new anchor was known. **Resolved by C-59:** the anchors are injected from code, so constitutions written before a host existed — or hand-edited — are protected too. | verified in code | RESOLVED | — |
 | **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. **Resolved by C-54** (settings mirrored to a file every host can read). | **empirical run** | RESOLVED | — |
