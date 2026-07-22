@@ -148,14 +148,16 @@ def main():
         check(len([h for h in got2["hooks"]["BeforeTool"] if "other_tool.py" in json.dumps(h)]) == 1,
               "and the third-party hook is still there")
 
-        # ------------------------------------------------- 5. refuse to guess an unknown host
-        print("\n  5. a host with an unknown config location is refused, not guessed at")
+        # ---------------------------------------- 5. a non-merge host is refused by the generic path
+        print("\n  5. a host that needs a dedicated install is refused by the generic merger")
         ok3, msg3 = cli._install_host("antigravity", hookpath, "bio.bio")
-        check(not ok3, "Antigravity install is refused")
-        check("no known config path" in msg3, f"…with the reason stated ({msg3[:50]}…)")
+        check(not ok3, "Antigravity install is refused by the generic config-merger")
+        check("dedicated install path" in msg3, f"…with the reason stated ({msg3[:50]}…)")
         check("antigravity" not in hosts.installable(), "it is excluded from `all` installs")
+        check(hosts.HOST_PROFILES["antigravity"].get("install") == "special",
+              "its profile marks it as a special (non-merge) install, not a guessed config path")
         check(hosts.HOST_PROFILES["antigravity"]["config"] is None,
-              "its profile records the path as unknown rather than a guess")
+              "and exposes no generic-merge config path")
 
         # ------------------------------------------------------ 6. damaged config is not eaten
         print("\n  6. a malformed config is reported, never overwritten")
@@ -165,6 +167,24 @@ def main():
         check(not ok4 and "not valid JSON" in msg4, "install refuses and says why")
         check(open(cfg, encoding="utf-8").read() == "{ this is not json",
               "the damaged file is left exactly as it was")
+
+        # --------------------------------- 7. the special (Antigravity) per-workspace install path
+        print("\n  7. Antigravity's dedicated install writes a per-workspace hook, non-clobbering")
+        agy_proj = os.path.join(home, "agy_ws")
+        os.makedirs(os.path.join(agy_proj, ".agents"))
+        json.dump({"user-hook": {"enabled": True}},
+                  open(os.path.join(agy_proj, ".agents", "hooks.json"), "w"))
+        ok5, _msg5 = cli._install_antigravity(agy_proj)
+        check(ok5, "the special install succeeds")
+        hj = json.load(open(os.path.join(agy_proj, ".agents", "hooks.json"), encoding="utf-8"))
+        check("metaspace-warden" in hj and "user-hook" in hj,
+              "our hook is added AND the user's other named hook is preserved (non-clobbering)")
+        w = hj.get("metaspace-warden", {})
+        check(w.get("PreToolUse", [{}])[0].get("matcher") == "*",
+              "it is a PreToolUse matcher group in agy's jsonhook schema")
+        check("run_adapter.bat" in json.dumps(w), "and points at the PACKAGED adapter bat")
+        check(os.path.exists(os.path.join(agy_proj, ".agents", "hooks.json.metaspace.bak")),
+              "the previous hooks.json was backed up first")
     finally:
         os.path.expanduser = real_expand
         shutil.rmtree(home, ignore_errors=True)

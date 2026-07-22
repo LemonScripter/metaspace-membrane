@@ -48,6 +48,8 @@ packages = ["core", "products.app_membrane", "products.ai_membrane", "products.m
 
 [tool.setuptools.package-data]
 # Ship the non-.py data files the CLI needs at runtime (the demo/install flow reads the
-# shipped .bio constitution; the app membrane's WASI guest is a prebuilt .wasm).
-"products.ai_membrane" = ["*.bio"]
+# shipped .bio constitution; the app membrane's WASI guest is a prebuilt .wasm). The agy/
+# tooling (adapter, mock, launcher, constitution) is shipped as data of ai_membrane — it is run
+# as subprocess scripts, not imported, so it ships whole (incl. .py) rather than as a subpackage.
+"products.ai_membrane" = ["*.bio", "agy/*.py", "agy/*.bio", "agy/*.bat", "agy/*.ps1", "agy/*.cmd"]
 "products.app_membrane" = ["*.wasm"]

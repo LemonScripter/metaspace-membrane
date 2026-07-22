@@ -1,0 +1,95 @@
+# RATIFIED
+# MetaSpace.Bio — Antigravity CLI (agy) session membrane constitution.
+#
+# HARD membrane for an `agy` session. Enforcement: agy's native jsonhook (PreToolUse) ->
+# agy_warden_adapter.py -> the unmodified Warden core. This file is agy-specific and is NOT the
+# shipped RATIFIED template (which stays untouched to preserve its provenance fingerprint).
+#
+# {{PROJECT_ROOT}} -> the agy workspace (from toolCall workspacePaths).
+# {{CLAUDE_HOME}}  -> ~/.claude (substituted by the hook).
+#
+# DESIGN NOTE — what actually guarantees safety here:
+#   The HARD guarantees are the FILESYSTEM write-scope (writes only inside the project) and the
+#   NETWORK out-scope (fetch only to named hosts). The BASH allowlist is defense-in-depth: it
+#   stops obviously-destructive shell patterns, but an allowlisted *unhardened interpreter*
+#   (python/node) can still run arbitrary compute. That is accepted for a dev agent — see O-nn
+#   "allowlisted interpreter = universal exec". `bash`/`sh` are SAFE to allow because the shell
+#   policy hardens them (bash -c is re-checked recursively; piped stdin is refused).
+
+CELL AgySession {
+
+  CAPABILITIES {
+    # write ONLY inside the project directory (the primary guarantee)
+    FILESYSTEM write "{{PROJECT_ROOT}}/**";
+    # read anywhere (so agy can study any codebase)
+    FILESYSTEM read  "**";
+
+    # --- self-protection: a deceived agy must not be able to DISABLE its own membrane ---
+    # never write the Warden's own config store
+    FILESYSTEM deny  "{{CLAUDE_HOME}}/**";
+    # never write the hook wiring that loads the guard (the one guard file inside the project)
+    FILESYSTEM deny  "{{PROJECT_ROOT}}/.agents/**";
+    # never write agy's own native hook + settings (global)
+    FILESYSTEM deny  "{{CLAUDE_HOME}}/../.gemini/antigravity-cli/**";
+    # the adapter / mock / launcher live in the installed package, OUTSIDE {{PROJECT_ROOT}},
+    # so the write-scope already protects them — no extra deny needed here.
+
+    # outbound network (WebFetch-class tools) — TIGHT allowlist; add hosts as your work needs.
+    # This is the anti-exfiltration guarantee: keep it minimal.
+    NETWORK    out   "docs.anthropic.com", "docs.claude.com",
+                     "github.com", "api.github.com", "raw.githubusercontent.com",
+                     "pypi.org", "files.pythonhosted.org", "registry.npmjs.org";
+    # everything else: DENY (deny-by-default)
+  }
+
+  BASH_POLICY {
+    # STRUCTURAL allowlist (deny-by-default). The hook resolves real program names with a shell
+    # lexer, so quoting / ${IFS} / chaining / substitution cannot smuggle a non-allowlisted
+    # program past it; unparseable input fails closed.
+    ALLOW
+      # language runtimes / package managers (dev necessity - python/node unhardened, see note)
+      "python", "python3", "pip", "pip3", "node", "npm", "npx", "yarn", "pnpm", "deno",
+      "pytest", "go", "cargo", "rustc", "dotnet", "java", "javac", "mvn", "gradle",
+      "tsc", "make", "cmake", "gcc", "g++", "clang", "tectonic", "ruby", "perl",
+      # hardened shells (safe to allow: bash -c is re-checked recursively)
+      "bash", "sh",
+      # version control
+      "git",
+      # filesystem basics (mutations are still scope-gated by FILESYSTEM write)
+      "ls", "cat", "echo", "cd", "pwd", "mkdir", "cp", "mv", "touch", "ln", "stat",
+      "basename", "dirname", "realpath", "tree", "du", "df",
+      # text / inspection
+      "grep", "find", "head", "tail", "wc", "sort", "uniq", "cut", "tr", "sed", "awk",
+      "diff", "tee", "xargs", "test", "true", "false", "sleep", "clear", "env", "printenv",
+      # read-only system inspection (harmless identity / status)
+      "whoami", "hostname", "uname", "where", "which", "date", "time", "ver",
+      "dir", "type", "set", "path", "systeminfo", "tasklist";
+
+    # token-based denied invocations (prefix-matched per sub-command; defense-in-depth even for
+    # allowlisted programs). NOTE: cmd / powershell are intentionally NOT allowlisted (unhardened
+    # universal shells).
+    DENY "rm -rf";
+    DENY "rm -fr";
+    DENY "mkfs";
+    DENY "dd";
+    DENY "git push";
+    DENY "git reset --hard";
+    DENY "git clean -fd";
+    DENY "npm publish";
+    DENY "chmod 777";
+    # Windows destructive
+    DENY "del /f";
+    DENY "del /q";
+    DENY "rmdir /s";
+    DENY "rd /s";
+    DENY "format";
+    DENY "diskpart";
+    DENY "shutdown";
+    DENY "reg delete";
+    DENY "schtasks";
+    # network egress via shell (also not allowlisted, so already denied — belt-and-suspenders)
+    DENY "curl";
+    DENY "wget";
+  }
+
+}

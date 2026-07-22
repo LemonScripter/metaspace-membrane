@@ -189,6 +189,11 @@ def _install_host(host_id, hook_path, bio_dest, dry_run=False):
     profile = _hosts.HOST_PROFILES.get(host_id)
     if not profile:
         return False, "unknown host id %r" % host_id
+    # Some hosts are not wired by merging a settings file (Antigravity: per-workspace hooks behind
+    # a mock-flipped feature flag). The generic installer refuses them and points at their path.
+    if profile.get("install") == "special":
+        return False, ("%s needs its dedicated install path, not a generic config-merge "
+                       "(mock + adapter + launcher). See its profile notes / O-16." % profile["label"])
     event, entry = _hosts.install_entry(host_id, 'python "%s"' % hook_path)
     if not event:
         return False, ("%s: no known config path — it must be found by experiment before the "
@@ -231,6 +236,77 @@ def _install_host(host_id, hook_path, bio_dest, dry_run=False):
     except Exception:
         pass
     return True, "%s: hook wired into %s (event %s)" % (profile["label"], cfg, event)
+
+
+def _agy_dir():
+    return os.path.join(HERE, "products", "ai_membrane", "agy")
+
+
+def _agy_feasibility():
+    """(ok, reasons) — can agy activation actually work on THIS machine? Reuses the packaged
+    build_features.feasibility(); never raises."""
+    try:
+        import importlib.util
+        p = os.path.join(_agy_dir(), "build_features.py")
+        spec = importlib.util.spec_from_file_location("agy_build_features", p)
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m.feasibility()
+    except Exception as e:
+        return False, ["could not evaluate feasibility (%s)" % e]
+
+
+def _install_antigravity(project, dry_run=False):
+    """Wire the EXPERIMENTAL agy guard into ONE workspace's `.agents/hooks.json`.
+
+    Antigravity is not a generic-merge host: its executing hooks live per-workspace and only fire
+    once a local mock flips the `json-hooks-enabled` Unleash flag. So the install writes the
+    workspace hook (pointing at the PACKAGED adapter) and directs the user to launch agy through
+    the packaged launcher, which starts the mock and sets UNLEASH_URL. Non-clobbering + backed up.
+    Reverse-engineered and experimental — no guarantee tier is claimed (O-16 OPEN)."""
+    agy_dir = _agy_dir()
+    bat = os.path.join(agy_dir, "run_adapter.bat")
+    launcher = os.path.join(agy_dir, "agy-guarded.cmd")
+    if not os.path.exists(bat):
+        return False, "packaged agy adapter not found (%s)" % bat
+    proj = os.path.abspath(project)
+    agents_dir = os.path.join(proj, ".agents")
+    hooks_path = os.path.join(agents_dir, "hooks.json")
+
+    existing = {}
+    if os.path.exists(hooks_path):
+        try:
+            with open(hooks_path, encoding="utf-8-sig") as fh:
+                existing = json.load(fh) or {}
+        except Exception as e:
+            return False, "%s is not valid JSON (%s) — refusing to overwrite" % (hooks_path, e)
+
+    if dry_run:
+        return True, ("Antigravity: WOULD write %s (a per-workspace PreToolUse hook -> the packaged "
+                      "adapter), preserving any other named hooks" % hooks_path)
+
+    # name-keyed schema: preserve every other named hook, replace only ours
+    existing["metaspace-warden"] = {
+        "enabled": True,
+        "PreToolUse": [{"matcher": "*",
+                        "hooks": [{"type": "command", "command": bat, "timeout": 20}]}],
+    }
+    os.makedirs(agents_dir, exist_ok=True)
+    if os.path.exists(hooks_path):
+        bak = hooks_path + ".metaspace.bak"
+        if not os.path.exists(bak):
+            shutil.copy2(hooks_path, bak)
+    with open(hooks_path, "w", encoding="utf-8") as fh:
+        json.dump(existing, fh, indent=2, ensure_ascii=False)
+
+    feasible, reasons = _agy_feasibility()
+    feas = ("        Activation on THIS machine looks feasible." if feasible else
+            "        NOTE — activation may NOT work here: " + "; ".join(reasons))
+    return True, ("Antigravity wired (EXPERIMENTAL) into %s\n"
+                  "        LAUNCH agy through the guarded launcher (it starts the mock + sets "
+                  "UNLEASH_URL):\n          %s\n"
+                  "        Plain `agy` is NOT protected — the launcher is required. Reverse-"
+                  "engineered; may break on an agy update (O-16).\n%s" % (hooks_path, launcher, feas))
 
 
 def cmd_install(args):
@@ -326,10 +402,19 @@ def cmd_install(args):
         from core import hosts as _hosts
         ids = _hosts.installable() if wanted == "all" else [wanted]
         ids = [h for h in ids if h != "claude-code"]          # already done above
-        if not ids:
+        # a 'special' host (Antigravity) is never in installable(); it has its own per-workspace path
+        special = [h for h in ids if _hosts.HOST_PROFILES.get(h, {}).get("install") == "special"]
+        ids = [h for h in ids if h not in special]
+        if not ids and not special:
             host_msgs.append("  (no additional host to wire — %r is not installable)" % wanted)
         for hid in ids:
-            ok, msg = _install_host(hid, hook, bio_dest, dry_run=getattr(args, "dry_run", False))
+            ok, msg = _install_host(hid, hook, bio_dest, dry_run=dry)
+            host_msgs.append(("  [OK] " if ok else "  [!!] ") + msg)
+        for hid in special:
+            if hid == "antigravity":
+                ok, msg = _install_antigravity(args.project or os.getcwd(), dry_run=dry)
+            else:
+                ok, msg = False, "%s: special install not implemented" % hid
             host_msgs.append(("  [OK] " if ok else "  [!!] ") + msg)
 
     mode = env["METASPACE_MODE"]
@@ -790,7 +875,9 @@ def build_parser():
                      help="install already blocking (skip the default dry-run/observe first run)")
     ins.add_argument("--host", metavar="ID", default=None,
                      help="also wire another detected host (e.g. gemini-cli), or 'all' for every "
-                          "host whose config location is known")
+                          "host whose config location is known. 'antigravity' is EXPERIMENTAL and "
+                          "per-workspace (uses --project or the current dir); launch agy via the "
+                          "packaged launcher afterwards")
     ins.add_argument("--dry-run", action="store_true",
                      help="show what --host would write, without touching any file")
     ins.set_defaults(fn=cmd_install)

@@ -114,6 +114,9 @@ def make_handler(token, port):
                 return self._send(200, _page(token), "text/html; charset=utf-8")
             if path == "/api/projects":
                 return self._json(200, {"projects": project_config.list_projects()})
+            if path == "/api/hosts":
+                from core import hosts
+                return self._json(200, {"hosts": hosts.protection()})
             if path == "/api/default":
                 return self._json(200, {"fields": bio_fields.SAFE_DEFAULTS})
             if path == "/api/commands":
@@ -168,6 +171,24 @@ def make_handler(token, port):
                 from core import telemetry
                 telemetry.set_consent(bool(b.get("consent")))
                 return self._json(200, {"ok": True, "consent": telemetry.get_consent()})
+            if path == "/api/install-host":
+                # per-workspace EXPERIMENTAL setup for a 'special' host (Antigravity). Writes the
+                # workspace hook AND reports honest activation feasibility (files ship; activation
+                # is environment-dependent — O-16).
+                host = (b.get("host") or "").strip()
+                proj = (b.get("path") or "").strip()
+                if host != "antigravity":
+                    return self._json(400, {"error": "only 'antigravity' has a UI setup today"})
+                if not proj:
+                    return self._json(400, {"error": "choose the agy workspace folder first"})
+                try:
+                    import cli
+                    ok, msg = cli._install_antigravity(os.path.abspath(proj))
+                    feasible, reasons = cli._agy_feasibility()
+                except Exception as e:
+                    return self._json(200, {"ok": False, "error": str(e)})
+                return self._json(200, {"ok": ok, "message": msg,
+                                        "feasible": feasible, "reasons": reasons})
             if path == "/api/license":
                 from core import license as lic
                 if not lic.available():
@@ -292,6 +313,7 @@ input[type=text]{width:100%;background:#0e1526;color:var(--fg);border:1px solid 
 </style></head><body><div class="wrap">
 <h1>MetaSpace Warden</h1>
 <p class="sub">A safety membrane for your AI coding agent. Configure it per working directory.</p>
+<div id="hosts" class="card"></div>
 <div id="list"></div>
 <div style="margin:14px 0"><button class="primary" onclick="showForm()">➕ Add a working directory</button> <a href="#" class="cmdinfo-link" onclick="event.preventDefault();openDirInfo()">&#9432; What&#39;s this?</a></div>
 <div id="form" class="card hidden"></div>
@@ -441,6 +463,38 @@ async function load(){
  document.getElementById('consent').innerHTML=`<label style="display:flex;gap:9px;align-items:center;cursor:pointer;color:var(--fg)"><input type="checkbox" ${t.consent?'checked':''} onchange="setConsent(this.checked)"> Share anonymous usage stats <span class="hint">— off by default; never any code, paths, or personal data</span></label>`;
  renderTools();
  await renderLicense();
+ loadHosts();
+}
+async function loadHosts(){
+ const r=await api('GET','/api/hosts');
+ const rows=(r.hosts||[]).filter(h=>h.installed).map(h=>{
+  const s=h.status;
+  const expTxt = h.detail==='active' ? 'Experimental &middot; active'
+               : h.detail==='inactive' ? 'Experimental &middot; inactive'
+               : 'Experimental &mdash; opt-in';
+  const expCol = h.detail==='active' ? ' class="badge enforce"' : ' class="badge"';
+  const badge = s==='protected'   ? '<span class="badge enforce">Protected</span>'
+              : s==='experimental'? '<span'+expCol+'>'+expTxt+'</span>'
+              : s==='unprotected' ? '<span class="badge" style="color:var(--danger);border-color:var(--danger)">Not protected</span>'
+              : '<span class="badge">Not installed</span>';
+  const ic = s==='protected'?'&#128737;&#65039;' : s==='experimental'?'&#129514;' : s==='unprotected'?'&#9888;&#65039;':'&#8212;';
+  const btn = s==='experimental' ? ` <button class="ghost" onclick="setupAgy()">Set up&hellip;</button>` : '';
+  return `<div class="row"><div>${ic} <b>${h.label}</b></div><div>${badge}${btn}</div></div>`;
+ }).join('');
+ document.getElementById('hosts').innerHTML =
+  `<h3 style="margin:2px 0 8px">Detected AI agents</h3>`+
+  (rows||'<div class="hint">No AI coding agents detected on this machine.</div>')+
+  `<div class="hint" style="margin-top:8px">One install covers Claude Code &amp; Cursor. Antigravity (agy) needs an experimental opt-in setup and is not auto-protected.</div>`;
+}
+async function setupAgy(){
+ const p=prompt('Antigravity (agy) is EXPERIMENTAL. Enter the workspace folder to protect:');
+ if(!p||!p.trim()) return;
+ const r=await api('POST','/api/install-host',{host:'antigravity',path:p.trim()});
+ if(r.error){alert('⚠ '+r.error);return}
+ const feas = r.feasible ? '✅ Activation looks feasible on this machine.'
+   : '⚠ Activation may NOT work here:\n  - '+((r.reasons||[]).join('\n  - '));
+ alert((r.message||'')+'\n\n'+feas);
+ loadHosts();
 }
 function renderTools(){
  document.getElementById('tools').innerHTML=`<h3 style="margin:2px 0 8px">Tools <a href="#" class="cmdinfo-link" onclick="event.preventDefault();openToolsInfo()">&#9432; How do these work?</a></h3>

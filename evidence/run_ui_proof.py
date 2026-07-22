@@ -114,6 +114,36 @@ def main():
     check(code == 200 and any(p["path"] == projX for p in json.loads(out)["projects"]),
           "GET /api/projects lists the configured project")
 
+    # ---- host status panel: the multi-host reality is made visible (no silent gap) ----
+    code, out = req(base, "GET", "/api/hosts", token=token)
+    hp = json.loads(out).get("hosts", []) if code == 200 else []
+    by_id = {h["id"]: h for h in hp}
+    check(code == 200 and {"claude-code", "antigravity"} <= set(by_id),
+          "GET /api/hosts reports every detected agent with a protection status")
+    ag = by_id.get("antigravity", {})
+    check(ag.get("protected") is not True and ag.get("status") in ("experimental", "absent"),
+          "Antigravity (special install) is never silently 'protected' — experimental opt-in or absent")
+    check(all(h.get("status") in ("protected", "unprotected", "experimental", "absent") for h in hp),
+          "every host status is from the honest enumeration")
+
+    # ---- UI-driven EXPERIMENTAL agy setup: writes the workspace hook + honest feasibility ----
+    import tempfile
+    import shutil as _shutil
+    agy_ws = tempfile.mkdtemp(prefix="ui_agy_")
+    code, out = req(base, "POST", "/api/install-host", token=token, origin=good_origin,
+                    body={"host": "antigravity", "path": agy_ws})
+    res = json.loads(out) if code == 200 else {}
+    check(code == 200 and res.get("ok") is True,
+          "POST /api/install-host wires agy into the chosen workspace")
+    check(os.path.exists(os.path.join(agy_ws, ".agents", "hooks.json")),
+          "the per-workspace .agents/hooks.json is written by the UI setup")
+    check(isinstance(res.get("feasible"), bool),
+          "the response carries an honest activation-feasibility flag (files ship; activation is env-dependent)")
+    code2, _ = req(base, "POST", "/api/install-host", token=token, origin=good_origin,
+                   body={"host": "cursor", "path": agy_ws})
+    check(code2 == 400, "install-host refuses hosts other than the special agy path")
+    _shutil.rmtree(agy_ws, ignore_errors=True)
+
     # the configured constitution actually drives the real hook
     check(drive_hook(projX, "git status") == 2, "UI-configured project BLOCKS `git status` (not allowlisted)")
     check(drive_hook(projX, "python build.py") == 0, "UI-configured project ALLOWS `python build.py`")
