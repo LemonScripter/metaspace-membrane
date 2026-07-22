@@ -34,6 +34,7 @@ Zero third-party dependencies — this sits on the enforcement hot path.
 """
 
 import os
+import json
 
 # ---------------------------------------------------------------------------
 # Tool aliases: every host's tool name -> the canonical (Claude Code) name the
@@ -108,20 +109,27 @@ HOST_PROFILES = {
     "antigravity": {
         "label": "Antigravity CLI (agy)",
         "detect": ["~/.gemini/antigravity-cli", "~/AppData/Local/agy"],
-        # UNKNOWN on purpose. The binary is a 156 MB Go executable whose string table is fully
-        # concatenated, so the path cannot be read out statically the way Cursor's and Gemini's
-        # could. It logs `hooks_manager.go: loaded N named hooks from M hooks.json file(s)`, so
-        # the location is discoverable by experiment: drop a marker hooks.json in each candidate
-        # and watch M go from 0 to 1. Until that run happens this stays None and no install is
-        # attempted — guessing a config path is how you silently write a file nothing reads.
+        # Execution SOLVED by experiment (O-16 update, 2026-07-22): agy IS a hook agent. But it is
+        # deliberately NOT a generic-merge host, so `config` stays None: unlike Claude/Cursor/Gemini
+        # there is no single settings file to wire. Its executing hooks live in a PER-WORKSPACE
+        # `.agents/hooks.json` (its `jsonhook.go` path), and that path is gated by a server-side
+        # Unleash flag (`json-hooks-enabled`, constrained to ide=jetski) that must first be flipped
+        # via a local mock. So the generic installer correctly REFUSES it — it needs the dedicated
+        # agy path (mock + adapter + launcher), marked below.
         "config": None,
         "config_kind": None,
-        "pre_tool_event": "PreToolUse",         # inferred from strings; NOT verified
-        "matcher": None,
-        "verdict": None,
-        "propagates_env": None,
-        "notes": "Detected but NOT surveyable statically (Go binary). Config path unknown — "
-                 "must be found by experiment before any install. See O-16.",
+        "install": "special",                    # not a JSON-merge; see the dedicated agy path
+        "exec_config": ".agents/hooks.json",     # per-workspace; schema: name -> event -> [{matcher, hooks[]}]
+        "activation": "unleash-mock",            # json-hooks-enabled is ide=jetski-gated (O-16)
+        "pre_tool_event": "PreToolUse",          # CONFIRMED live (2026-07-22), not merely inferred
+        "matcher": None,                         # None keeps install_entry() returning (None, None)
+        "verdict": "json-decision",              # {"decision": allow|deny|ask|force_ask, ...} — confirmed
+        "propagates_env": False,                 # no settings.json env; UNLEASH_URL is set at launch
+        "notes": "Hook execution SOLVED by experiment (O-16 update): agy's workspace "
+                 "`.agents/hooks.json` fires PreToolUse once the `json-hooks-enabled` Unleash flag "
+                 "is flipped (local mock, UNLEASH_URL redirect). NOT a JSON-merge install — needs "
+                 "the dedicated agy path (mock + adapter + launcher), so the generic installer "
+                 "refuses it. Reverse-engineered and experimental; no proof harness yet (O-16 OPEN).",
     },
 }
 
@@ -158,6 +166,78 @@ def detect():
             "propagates_env": p["propagates_env"],
             "notes": p["notes"],
         })
+    return out
+
+
+# The local mock Unleash that flips agy's `json-hooks-enabled` flag listens here. Its being up is
+# the strongest cheap machine-level signal that agy's (experimental) protection is live right now:
+# without it the flag reverts and hooks stop firing. Not a guarantee — the launcher must also inject
+# UNLEASH_URL — so this only ever refines the `experimental` tier, never promotes it to `protected`.
+AGY_MOCK_HOST, AGY_MOCK_PORT = "127.0.0.1", 4242
+
+
+def _port_open(host, port, timeout=0.25):
+    """True if something accepts a TCP connection at host:port. Fast, best-effort, never raises."""
+    import socket
+    s = socket.socket()
+    s.settimeout(timeout)
+    try:
+        s.connect((host, port))
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+
+def _hook_wired(config_path, event):
+    """True if OUR PreToolUse hook is present in this host's config file for `event`.
+    Best-effort and read-only — a check for the control panel's status view, not an authority."""
+    if not config_path:
+        return False
+    p = _expand(config_path)
+    if not os.path.exists(p):
+        return False
+    try:
+        with open(p, encoding="utf-8-sig") as fh:      # some hosts write a BOM
+            s = json.load(fh) or {}
+    except Exception:
+        return False
+    hooks = (s.get("hooks") or {}).get(event, [])
+    return any("session_guard_hook" in json.dumps(h) for h in hooks)
+
+
+def protection():
+    """Per-host protection status for the control panel: detection PLUS whether the membrane is
+    actually wired. Read-only, best-effort — makes the multi-host reality visible so a user is
+    never silently unprotected. A 'special' host (Antigravity) is opt-in and its per-workspace
+    wiring is not a single-file check, so it is reported as `experimental`, never as 'protected'.
+
+    status ∈ {protected, unprotected, experimental, absent}.
+    """
+    out = []
+    for h in detect():
+        prof = HOST_PROFILES.get(h["id"], {})
+        detail = None
+        if not h["installed"]:
+            protected, status = False, "absent"
+        elif prof.get("install") == "special":
+            # NEVER promoted to 'protected' (conditional + reverse-engineered + no proof harness,
+            # O-16). But reflect the observable live state so the panel is not stuck on a generic
+            # label: `active` when the activation mock is up, `inactive` otherwise.
+            protected, status = None, "experimental"
+            detail = "active" if _port_open(AGY_MOCK_HOST, AGY_MOCK_PORT) else "inactive"
+        else:
+            # a host may read another's config (Cursor <- Claude Code, same settings.json under
+            # Claude's PreToolUse key); inherit the owner's wiring so it is not falsely "unprotected".
+            owner = HOST_PROFILES.get(prof.get("shares_config_with"), prof)
+            protected = _hook_wired(owner.get("config"), owner.get("pre_tool_event"))
+            status = "protected" if protected else "unprotected"
+        out.append({"id": h["id"], "label": h["label"], "installed": h["installed"],
+                    "protected": protected, "status": status, "detail": detail})
     return out
 
 
