@@ -368,7 +368,7 @@ def cmd_install(args):
 
     # single command-string form (matches the plugin hooks.json)
     hook_entry = {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Read|Bash|WebFetch",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Read|Bash|PowerShell|WebFetch",
         "hooks": [{"type": "command", "command": 'python "%s"' % hook, "timeout": 30}],
     }
     hooks = settings.setdefault("hooks", {})

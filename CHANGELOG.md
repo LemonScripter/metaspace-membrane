@@ -6,6 +6,29 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+### Fixed
+- **Security: a second shell on the same host was entirely unmediated.** A `PowerShell` tool sat
+  beside `Bash` with the same capability, and the membrane did not know it existed — a live call
+  produced no audit entry at all, not even `PASSTHROUGH`, because the installer writes an
+  enumerated matcher and that name was not on it. Every shell protection in this project was one
+  tool name away from irrelevant. Both shells now map to `SHELL/exec` and reach identical
+  verdicts. **Honest limit:** the policy tokenises POSIX-style, so this is mediation rather than
+  comprehension of PowerShell; the mismatch runs towards over-blocking, and the boundary on this
+  host remains the filesystem write-scope and the network out-scope. **And it is a stopgap** —
+  adding names to a set does not make the membrane deny-by-default over tools it was never told
+  about. (C-73 / O-34.)
+
+### Measured
+- **The recognised surface, counted.** The audit's whole history — 7652 entries — was produced by
+  exactly **five** tool names (`Bash`, `Edit`, `Write`, `Read`, `WebFetch`); two of the seven names
+  in the matcher have never appeared at all. The tool inventory reachable in one live session is
+  about **73 names**, so roughly one in ten is routed to the membrane. `Glob`, `Grep` and
+  `PowerShell` were confirmed live to leave no trace of any kind. Recorded under O-33 — the useful
+  figure is not the ratio but that the project cannot say what the other names do.
+
+### Added
+- `run_powershell_proof` (P-POWERSHELL), bringing the suite to **52**.
+
 ## [0.3.4] — 2026-07-28
 
 **Security patch.** Five more fail-opens in the shell policy, found by attacking it deliberately

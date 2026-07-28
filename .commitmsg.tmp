@@ -1,0 +1,55 @@
+C-73: mediate PowerShell, and record the size of the unrecognised surface
+
+The Bash path is the most defended surface in this project: structural
+tokenisation, allowlist, denylist, interpreter hardening, and nine fail-opens
+closed in one day, guarded by fifty proofs. Beside it sat a PowerShell tool
+with the same capability on the same machine, and the membrane did not know it
+existed. A live call produced no audit entry at all — not ALLOW, not DENY, not
+even PASSTHROUGH — because the installer writes an enumerated matcher and that
+name was not on it.
+
+Every shell protection built today was one tool name away from irrelevant.
+
+Both shells now map to SHELL/exec and reach identical verdicts, and the
+installer's matcher names PowerShell. Reproduced before fixing: `git push` and
+`wget` were refused under Bash and allowed under PowerShell.
+
+Two things this is NOT.
+
+It is not comprehension of PowerShell. core/shell_policy.py tokenises
+POSIX-style, and PowerShell is not POSIX — its backtick escapes rather than
+substitutes. The mismatch runs towards over-blocking, which is the safe
+direction, but the boundary on this host stays the filesystem write-scope and
+the network out-scope, as C-63 already says for interpreters in general.
+
+It is not the fix for the underlying defect. Adding names to a set is the
+enumeration this project keeps having to undo — the same shape as the separator
+list, the anchor list and the environment-variable list. It closes the one gap
+that was measured to be severe. O-33 stays open.
+
+THE SURFACE, MEASURED.
+
+The audit's entire history — 7652 entries — was produced by exactly five tool
+names: Bash 1795, Edit 1351, Write 390, Read 146, WebFetch 32, plus three
+PASSTHROUGH names from Cursor. Two of the seven names in the matcher,
+MultiEdit and NotebookEdit, have never appeared at all.
+
+Against that, the tool inventory reachable in one live session is about 73
+names (14 direct, 23 deferred, 6 auth, 30 MCP). The matcher routes roughly one
+name in ten. Confirmed live: Glob, Grep and PowerShell calls leave no trace of
+any kind.
+
+Effect-capable examples that remain unmediated: Artifact (publishes content to
+the web), 27 mcp__alpaca__* tools (network and account data), WebSearch,
+Glob/Grep/LSP (filesystem read), EnterWorktree/ExitWorktree (filesystem writes
+via git), Agent/Skill, and SendMessage/PushNotification/RemoteTrigger/Cron*
+(external or scheduled effects).
+
+The number worth remembering is not ten percent. It is that the project cannot
+say what the other sixty-six names do, which is the definition of an unmeasured
+attack surface.
+
+Suite: 52 proofs, 51 pass + 1 skip. Ledger: 52 proven, 6 blocked, 4 planned of
+73; 18 open obstacles of 34.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

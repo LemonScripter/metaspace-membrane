@@ -83,6 +83,20 @@ AUDIT = os.environ.get("METASPACE_SESSION_AUDIT",
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 READ_TOOLS = {"Read"}
 NET_TOOLS = {"WebFetch"}
+# Every tool that hands a command line to a shell. `Bash` was alone here while a `PowerShell`
+# tool sat beside it with the same capability on the same machine — a live call left no audit
+# entry at all, because the membrane only ever knew the one name (O-34). Every shell protection
+# in this project was one tool name away from irrelevant.
+#
+# HONEST LIMIT: `core/shell_policy.py` tokenises POSIX-style, and PowerShell is not POSIX — its
+# backtick is an escape character, not command substitution, for instance. The mismatch runs
+# towards over-blocking (a wrong split refuses), which is the safe direction, but this is
+# mediation, not comprehension. The boundary on this host stays the FILESYSTEM write-scope and
+# the NETWORK out-scope, as C-63 says for interpreters generally.
+#
+# And adding a name is a stopgap, not the fix: the membrane still decides only over the tools it
+# is told about. The structural answer is O-33 — see the ledger before extending this set again.
+SHELL_TOOLS = {"Bash", "PowerShell", "Shell", "Terminal", "run_shell_command", "shell_exec"}
 
 
 def audit(rec):
@@ -254,7 +268,7 @@ def main():
         kind, mode, target = "FILESYSTEM", "read", (tin.get("file_path") or "")
     elif tool in NET_TOOLS:
         kind, mode, target = "NETWORK", "out", host_of(tin.get("url", ""))
-    elif tool == "Bash":
+    elif tool in SHELL_TOOLS:
         kind, mode, target = "SHELL", "exec", (tin.get("command", "") or "")
     else:
         # Not a mediated effect -> let the normal permission flow proceed. But RECORD it:

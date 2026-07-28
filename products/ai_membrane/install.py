@@ -53,7 +53,7 @@ def main():
     settings["env"]["METASPACE_SESSION_BIO"] = bio_dest.replace("\\", "/")
 
     hook_entry = {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Read|Bash|WebFetch",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Read|Bash|PowerShell|WebFetch",
         "hooks": [{
             "type": "command",
             "command": "python",
