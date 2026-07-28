@@ -6,6 +6,13 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-07-29
+
+**Security patch.** A `PowerShell` tool sat beside `Bash` with the same capability on the same
+machine, and the membrane did not know it existed — a live call left no audit entry at all. Every
+shell protection this project has built was one tool name away from irrelevant. This release also
+publishes the measurement of how much of a host's tool surface reaches the membrane at all.
+
 ### Fixed
 - **Security: a second shell on the same host was entirely unmediated.** A `PowerShell` tool sat
   beside `Bash` with the same capability, and the membrane did not know it existed — a live call
