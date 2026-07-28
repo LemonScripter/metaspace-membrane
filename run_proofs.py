@@ -64,6 +64,7 @@ PROOFS = [
     ("Hermeticity: the evidence does not depend on the machine (C-61)", "evidence/run_hermeticity_proof.py"),
     ("BASH_POLICY parse: a comment cannot empty the allowlist; empty fails closed (O-20)", "evidence/run_bashparse_proof.py"),
     ("Antigravity bridge: agy's contract in, the Warden's verdict out, fail-closed (C-64)", "evidence/run_agy_adapter_proof.py"),
+    ("Anchor carve-out: user data writable, control surface sealed (C-66/O-22)", "evidence/run_anchor_carveout_proof.py"),
 ]
 
 
@@ -84,9 +85,18 @@ def main():
     # on the state of the machine running it, which is exactly what "claim = proof" must not
     # tolerate. Pinning the baseline here makes the assumption explicit and the run reproducible.
     # Proofs that exercise other modes set them on their own child environment and are unaffected.
-    base_env = dict(os.environ)
+    #
+    # The baseline drops EVERY `METASPACE_*` variable and re-pins only the mode, rather than
+    # listing the ones known to cause trouble. That list was `METASPACE_SESSION_BIO` alone, and
+    # it was already incomplete: a host that exports `METASPACE_PROJECT_ROOT` into the tool
+    # environment (a `settings.json` env block does exactly that) made two proofs fail, because
+    # the shipped constitution's `{{PROJECT_ROOT}}` then resolved to the developer's own working
+    # area instead of the proof's temporary project. Enumerating is the wrong shape here: a
+    # variable added later is a silent hole, while dropping everything and re-adding what the
+    # suite needs means the only possible mistake is a proof that visibly cannot run.
+    base_env = {k: v for k, v in os.environ.items() if not k.startswith("METASPACE_")}
     base_env["METASPACE_MODE"] = "enforce"
-    base_env.pop("METASPACE_SESSION_BIO", None)
+    base_env.pop("CLAUDE_PROJECT_DIR", None)   # the hook falls back to it for the project root
 
     results = []
     for name, rel in PROOFS:

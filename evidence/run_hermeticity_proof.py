@@ -105,8 +105,15 @@ def main():
         src = open(RUNNER, encoding="utf-8").read()
         check(re.search(r"base_env\s*\[\s*[\"']METASPACE_MODE[\"']\s*\]\s*=", src) is not None,
               "the runner sets METASPACE_MODE for children")
-        check(re.search(r"base_env\.pop\(\s*[\"']METASPACE_SESSION_BIO[\"']", src) is not None,
-              "…and drops an inherited METASPACE_SESSION_BIO")
+        # It used to be enough to drop METASPACE_SESSION_BIO by name. It was not: a host that
+        # exports METASPACE_PROJECT_ROOT into the tool environment made two proofs fail, because
+        # {{PROJECT_ROOT}} then resolved to the developer's working area rather than the proof's
+        # temporary project. An enumerated list of dangerous variables is the wrong shape — the
+        # next one added is a silent hole — so the baseline must drop the whole namespace.
+        check(re.search(r"if not k\.startswith\(\s*[\"']METASPACE_[\"']\s*\)", src) is not None,
+              "…and drops EVERY inherited METASPACE_* variable, not a named list")
+        check(re.search(r"base_env\.pop\(\s*[\"']CLAUDE_PROJECT_DIR[\"']", src) is not None,
+              "…including CLAUDE_PROJECT_DIR, the hook's fallback for the project root")
         # the call spans lines and contains nested parens, so bound the window instead of
         # trying to exclude ')' — an over-clever pattern here would fail on correct code
         check(re.search(r"subprocess\.run\(.{0,300}?env\s*=\s*base_env", src, re.S) is not None,

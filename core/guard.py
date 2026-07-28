@@ -32,6 +32,26 @@ class ConstitutionViolation(Exception):
     """An effect outside the constitution — a deterministic block."""
 
 
+def _anchor_exempt(target):
+    """Is `target` user data inside an agent's config tree, rather than its control surface?
+
+    The deny-override below is what makes C-33 hold, and it is deliberately absolute — a
+    constitution cannot except itself from it. But a host's config tree also holds content the
+    agent is meant to write (Claude Code's per-project memory), and denying that made `enforce`
+    silently end cross-session memory (O-22). The short exemption list lives in
+    `core.agent_anchors`, in CODE: a constitution that could declare its own exemptions would
+    reopen exactly the hole C-33 closes. Exemption is not permission — the constitution's own
+    write scopes still apply afterwards.
+
+    Imported lazily and fail-closed: if the module cannot be loaded, nothing is exempt.
+    """
+    try:
+        from core.agent_anchors import is_exempt
+        return is_exempt(target)
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # .bio CAPABILITIES parser (tolerant: handles both authored and generated formats)
 # ---------------------------------------------------------------------------
@@ -128,7 +148,7 @@ class Guard:
         # root) happens to be a parent of it.
         if kind == "FILESYSTEM" and mode == "write" and target is not None:
             deny_scopes = self.allowed.get(("FILESYSTEM", "deny"))
-            if deny_scopes and self._scope_ok(target, deny_scopes):
+            if deny_scopes and self._scope_ok(target, deny_scopes) and not _anchor_exempt(target):
                 reason = f"FILESYSTEM/write '{target}' is explicitly denied (self-protection: {deny_scopes})"
                 self._log(kind, mode, target, False, reason)
                 raise ConstitutionViolation(f"[MEMBRANE BLOCK] {kind}/{mode} target={target} :: {reason}")

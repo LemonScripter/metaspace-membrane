@@ -6,6 +6,26 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+### Fixed
+- **The self-protection deny no longer swallows user data (C-66 / O-22).** Denying a host's whole
+  config tree is what makes C-33 hold, but the tree also holds content the agent is meant to
+  write: Claude Code keeps per-project memory under `~/.claude/projects/<slug>/memory/`. Measured
+  on a real install — switching to `enforce` silently ended cross-session memory, even though the
+  constitution granted that path. The tree stays denied in full and a short, code-defined
+  `DATA_CARVEOUTS` list is exempted, rather than switching to an enumerated list of denied config
+  files: whatever such a list forgets becomes writable, whereas a forgotten carve-out only
+  over-blocks. Exemption is not permission — the constitution must still grant the path — and the
+  list cannot be extended from a `.bio`, which `run_anchor_carveout_proof` pins by trying.
+- **The hermetic baseline drops a namespace, not a list (C-61 hardened).** `run_proofs.py`
+  removed `METASPACE_SESSION_BIO` by name; a host exporting `METASPACE_PROJECT_ROOT` into the tool
+  environment then made two proofs fail, because the shipped constitution's `{{PROJECT_ROOT}}`
+  resolved to the developer's working area instead of the proof's temporary project. Every
+  `METASPACE_*` variable is now dropped and only the mode re-pinned; `CLAUDE_PROJECT_DIR` too,
+  since the hook falls back to it. P-HERMETIC checks the shape, not the names.
+
+### Added
+- `run_anchor_carveout_proof` (P-CARVEOUT), bringing the suite to **48**.
+
 ## [0.3.2] — 2026-07-28
 
 **Security patch. Upgrade if you use the shell allowlist.** Releases up to and including

@@ -50,6 +50,38 @@ SYSTEM_ANCHORS = (
 )
 
 
+# --------------------------------------------------------------------------------------------
+# Data carve-outs (O-22)
+# --------------------------------------------------------------------------------------------
+# An anchor tree is not only control surface. Claude Code keeps per-project MEMORY under
+# `~/.claude/projects/<slug>/memory/` — user content the agent is meant to write, and the only
+# thing that survives between sessions. Denying the whole tree made `enforce` silently end that.
+#
+# The repair deliberately keeps the tree denied and exempts a short list, rather than switching to
+# a list of denied config files. The asymmetry is the entire point:
+#
+#   * forget to carve something out  -> it over-blocks. Loud, and someone reports it.
+#   * forget to deny a config file   -> a silent hole, and the hole is C-33 itself.
+#
+# Denial stays the default, so only the first kind of mistake is reachable.
+#
+# TWO LOCKS, ONE REMOVED. Being exempt here does not grant anything: it only lifts the code-level
+# veto, after which the constitution must still grant the path like any other. An installation
+# that never grants it is unchanged.
+#
+# NOT READABLE FROM A `.bio`, AND THAT IS LOAD-BEARING. If a constitution could declare its own
+# exemptions, a deceived agent would only need to write one — which is exactly the escape hatch
+# C-33 exists to remove. Entries are added here, in code, by a human, or not at all.
+#
+# HONEST COST (see C-05): memory is read back into the model's context in later sessions, so a
+# writable memory directory is a place where a deceived agent could leave text for its future
+# self. The membrane contains effects; it has never claimed to make the model injection-proof.
+# What it does guarantee is that this path cannot be used to switch the membrane off.
+DATA_CARVEOUTS = (
+    ".claude/projects/*/memory/**",   # Claude Code per-project memory (user content)
+)
+
+
 def _norm(p):
     return os.path.normpath(p).replace("\\", "/")
 
@@ -74,3 +106,21 @@ def deny_scopes():
 def deny_lines():
     """The same scopes rendered as `.bio` lines, for constitutions that show their own rules."""
     return ['    FILESYSTEM deny  "%s/**";' % d for d in anchor_dirs()]
+
+
+def exempt_scopes():
+    """Absolute globs the anchor deny does NOT cover (see DATA_CARVEOUTS)."""
+    home = os.path.expanduser("~")
+    return [_norm(os.path.join(home, c)) for c in DATA_CARVEOUTS]
+
+
+def is_exempt(path):
+    """True if `path` is user data inside an anchor rather than part of its control surface.
+
+    Exemption is not permission — the caller still applies the constitution's own scopes.
+    """
+    import fnmatch
+    if not path:
+        return False
+    t = _norm(str(path))
+    return any(fnmatch.fnmatch(t, s) for s in exempt_scopes())
