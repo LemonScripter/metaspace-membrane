@@ -1,0 +1,68 @@
+O-30..O-33: measure the recognition boundary, and correct two claims it made too strong
+
+Nothing is fixed here. This records what 0.3.4 actually does, because the
+question "what exactly does the shipped membrane confine?" could not be
+answered from the documents.
+
+The founding promise is the .bio one: what is not granted is unreachable. The
+WASM membrane delivers it literally — an ungranted capability is a link error,
+so the guest cannot even express the effect. Both membranes we actually ship do
+something structurally different: the agent, or the program, keeps full ambient
+authority and the membrane reviews the calls it happens to recognise. Under
+that model "not in the constitution" stops meaning "impossible" and starts
+meaning "no rule matched".
+
+Measured on 0.3.4 with ordinary, idiomatic code — no ctypes, no adversarial
+tricks.
+
+O-33, agent membrane. A PowerShell tool call produced NO audit entry at all —
+not ALLOW, not DENY, not PASSTHROUGH. The hook was never invoked, because the
+installer writes an enumerated matcher (install.py:56, cli.py:371) and that
+tool is not on it. Every `metaspace install` ships this. Alongside it,
+PASSTHROUGH — a decision category meaning "I did not understand this, so I
+allowed it" — cannot exist in a deny-by-default design: there is ALLOW for what
+is granted and DENY for everything else, including what is not understood. This
+also means our own installer does not satisfy C-02's stated CONDITION, which
+requires that the host route EVERY tool effect through the hook.
+
+O-30, program membrane, filesystem. Four of eight idiomatic writes escaped:
+io.open, pathlib.Path.write_text, os.open + os.write, os.rename. `pathlib` is
+how modern Python writes a file. The cause is structural rather than an
+oversight — Python has no chokepoint for file writes, since those are
+independent syscall wrappers.
+
+O-31 and O-32 name the two narrow gaps on the surfaces that DO have chokepoints:
+socket.getaddrinfo is unmediated, and os.spawn*/os.exec* create a process
+without touching Popen. Everything else held: socket, create_connection,
+http.client, urllib.urlopen, Popen, subprocess.run, os.system, os.popen were
+all refused.
+
+So the useful diagnosis is not "monkeypatching is weak". It works where the
+language funnels through one place and cannot work where it does not. C-13 is
+therefore true for NETWORK and SUBPROCESS on ordinary code and false for
+FILESYSTEM, and it now says so per capability kind.
+
+C-15 is corrected rather than restated. "Bypassable by adversarial native code"
+implied that escaping required intent and a lower level; `pathlib` suffices. An
+understated limit is worse than a missing one, because it reads as though the
+boundary had been examined.
+
+This is the third time this root cause has been written down — O-4 for MCP
+vocabularies, O-8 for the apprun monkeypatch, now O-33 for the host's own tool
+surface — and the first time it is named as one thing: enumerated recognition
+instead of removed authority.
+
+Deliberately not fixed in this commit. Two of the three corrections are product
+decisions with real costs: refusing unrecognised tools breaks workflows, and
+making the substrate primary narrows what can be promised off Linux. Those are
+the maintainer's calls, not the assistant's.
+
+Also of note, on method: the first network probe reported TypeError for
+http.client and urllib.urlopen. Writing those up as "passed" would have put two
+false fail-opens in the record, at the most important place. Repeated with
+clean imports, both are blocked — the fault was in the probe.
+
+Ledger: 51 proven, 6 blocked, 4 planned of 72; 18 open obstacles of 33.
+Suite unchanged: 51 proofs, 50 pass + 1 skip. Decision I-56.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
