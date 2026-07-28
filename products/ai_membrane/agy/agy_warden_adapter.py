@@ -34,7 +34,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))                    # .../ai_me
 AI_MEMBRANE = os.path.dirname(HERE)                                  # .../ai_membrane
 WARDEN = os.path.join(AI_MEMBRANE, "session_guard_hook.py")         # the unmodified Warden core
 DEFAULT_BIO = os.path.join(HERE, "agy.constitution.bio")            # tuned agy constitution
-DEBUG_LOG = os.path.join(HERE, "adapter_debug.jsonl")
+# overridable so a proof run does not scribble into the installed package directory
+DEBUG_LOG = os.environ.get("AGY_WARDEN_DEBUG_LOG") or os.path.join(HERE, "adapter_debug.jsonl")
 FAILOPEN = os.environ.get("AGY_WARDEN_FAILOPEN", "") in ("1", "true", "yes")
 
 # agy tool name (step type lowercased, CORTEX_STEP_TYPE_ prefix removed) -> canonical Claude tool
@@ -84,7 +85,13 @@ def _emit_and_exit(decision, reason=""):
 def main():
     try:
         raw = sys.stdin.buffer.read().decode("utf-8-sig")
-        event = json.loads(raw) if raw.strip() else {}
+        # Empty stdin used to become `{}`, which carries no toolCall, which the Warden treats as
+        # a non-mediated event and passes through — so a broken pipe or a host that invoked the
+        # hook with no payload was ALLOWED. The Warden itself raises on empty stdin for exactly
+        # this reason: a membrane that cannot see the request must not permit it. Found by P-AGY.
+        if not raw.strip():
+            raise ValueError("empty stdin")
+        event = json.loads(raw)
     except Exception as e:
         _dbg({"stage": "read", "error": str(e)})
         _emit_and_exit("allow" if FAILOPEN else "deny", f"agy-adapter: unreadable input ({e})")

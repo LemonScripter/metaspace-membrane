@@ -15,10 +15,12 @@ from core.guard import ConstitutionViolation
 from core.shell_policy import check as _shell_check
 
 
-def decide(kind, mode, target, guard, allowset=None, denylist=None):
+def decide(kind, mode, target, guard, allowset=None, denylist=None, allow_declared=False):
     """Decide a normalized effect. Returns (allow: bool, reason: str).
 
     - SHELL goes through the structural shell policy (allowlist + token denylist, fail-closed).
+      `allow_declared` carries the fact that the constitution stated an allowlist, so an empty
+      `allowset` is read as a broken parse (deny) rather than as "no allowlist" (allow) — O-20.
     - Everything else (FILESYSTEM / NETWORK / ENV / SUBPROCESS / …) goes through the capability
       Guard: deny-by-default, scope-enforced. A ConstitutionViolation becomes (False, reason).
 
@@ -26,7 +28,8 @@ def decide(kind, mode, target, guard, allowset=None, denylist=None):
     and for translating the verdict into its harness's response (exit code, JSON-RPC, …).
     """
     if kind == "SHELL":
-        return _shell_check(target or "", allow=allowset or set(), deny=denylist or [])
+        return _shell_check(target or "", allow=allowset or set(), deny=denylist or [],
+                            allow_declared=allow_declared)
     try:
         guard.check(kind, mode, target)
         return True, "allowed by the constitution"

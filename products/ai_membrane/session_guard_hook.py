@@ -136,15 +136,12 @@ def deny(reason, **extra):
     sys.exit(2)
 
 
-def parse_bash_denylist(bio_text):
-    return re.findall(r'DENY\s+"([^"]*)"', bio_text)
-
-
-def parse_bash_allowlist(bio_text):
-    allow = []
-    for stmt in re.findall(r'ALLOW\s+([^;]*);', bio_text, re.S):
-        allow += re.findall(r'"([^"]*)"', stmt)
-    return set(allow)
+# The BASH_POLICY parse used to be duplicated here, in core/bio_fields.py and in
+# core/provenance.py. Three copies of `ALLOW\s+([^;]*);` meant three chances to get it wrong,
+# and one of them was: a semicolon inside a comment emptied the allowlist, which silently
+# disabled the allowlist AND the interpreter hardening (O-20). One parser now, imported.
+from core.bio_policy import (                            # noqa: E402
+    parse_bash_allowlist, parse_bash_denylist, declares_allow)
 
 
 def host_of(url):
@@ -275,7 +272,10 @@ def main():
     from core.agent_adapter import decide
     allowset = parse_bash_allowlist(bio) if kind == "SHELL" else None
     denylist = parse_bash_denylist(bio) if kind == "SHELL" else None
-    ok, reason = decide(kind, mode, target, guard, allowset, denylist)
+    # whether an allowlist was STATED is a separate fact from what could be read out of it:
+    # stated-but-empty is a broken parse and must deny, not fall through to denylist-only (O-20)
+    stated = declares_allow(bio) if kind == "SHELL" else False
+    ok, reason = decide(kind, mode, target, guard, allowset, denylist, allow_declared=stated)
 
     # Diagnostics recorded on EVERY decision, not just passthroughs. Two facts turned out to be
     # invisible in the audit and had to be inferred: which dialect the host actually sent (a

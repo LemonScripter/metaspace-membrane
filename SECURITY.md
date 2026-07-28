@@ -41,6 +41,12 @@ the constitution (the defender authors and ratifies it), the host runtime, or th
   `run_ratify_demo`, `run_gate_demo`, `run_ratification_review_demo`.
 
 ## NOT guaranteed (honest non-goals)
+- **The BASH allowlist as a boundary.** It hardens *shell* interpreters — `bash -c CMD` is
+  re-checked recursively and piped stdin is refused — but an allowlisted language runtime is a
+  universal exec path: `python -c "…"` or `node -e "…"` runs code no allowlist entry describes.
+  Measured live: an agent refused `whoami` read the username via `python -c`. Since a development
+  agent needs those runtimes, on shell-mediated hosts containment rests on the FILESYSTEM
+  write-scope and the NETWORK out-scope — the allowlist is defence-in-depth. (C-63 / O-19.)
 - The content-level **truth** of a schema-valid statement — only the soft **advisory flag** qualifies
   it (see the threat matrix in `docs/ARCHITECTURE.md`).
 - **Free-form prose** — the membrane does not read it.

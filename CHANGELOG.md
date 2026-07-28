@@ -6,7 +6,35 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+### Fixed
+- **Security (fail-open): a comment could silently empty a constitution's shell allowlist.**
+  The `BASH_POLICY` allow/deny statements were parsed with `ALLOW\s+([^;]*);` against raw text,
+  in three separate files. A comment containing a semicolon truncated the capture to zero
+  programs, and an empty allowlist skips the allowlist branch *and* the shell-interpreter
+  hardening, degrading deny-by-default to a porous denylist without logging anything. Verified
+  against the real hook before the fix: `curl … | bash` was allowed. Now one quote-aware parser
+  (`core/bio_policy.py`), scoped to the `BASH_POLICY` block, and — independently of the regex —
+  a *declared* allowlist that yields no program **denies**, so the whole class fails loudly.
+  All 22 constitutions on the development machine were re-parsed with both expressions: none had
+  been degraded and no ratification fingerprint moved. (C-62 / O-20, decision I-49.)
+- **Security (fail-open): empty stdin was allowed by the Antigravity adapter.** It decoded to
+  `{}`, which carries no tool call, which the Warden passes through as a non-mediated event —
+  so a broken pipe permitted the call. The adapter now denies, matching the Warden's own rule.
+  Found by its own new proof. (C-64.)
+- Removed a hard-coded developer path (`C:\Users\<name>\AppData\Local\Temp`) from
+  `products/ai_membrane/agy/build_features.py`; it now falls back to `tempfile.gettempdir()`.
+  This repository is public.
+
 ### Added
+- **Two proofs, bringing the suite to 47.** `run_bashparse_proof` (P-BASHPARSE) pins the
+  allowlist parse against the real hook, including the pipe-to-shell command an empty allowlist
+  waves through; `run_agy_adapter_proof` (P-AGY) drives the Antigravity bridge hermetically —
+  temporary HOME, workspace and constitution, no `agy` binary required.
+- **C-63, stated publicly:** an allowlisted *language* runtime is a universal exec path
+  (`python -c "…"`, `node -e "…"`) that no allowlist entry describes. Measured live. On
+  shell-mediated hosts containment therefore rests on the FILESYSTEM write-scope and the NETWORK
+  out-scope; the BASH allowlist is defence-in-depth, not the boundary. Now in README and
+  `SECURITY.md` rather than implied. (O-19, accepted as a limit.)
 - **Agent-agnostic design rationale** (`docs/AGENT_AGNOSTIC_DESIGN.md`, decision I-47). Analyses
   the generalization from "the Claude Code Warden" to a universal effect-containment layer,
   grounded in the existing harness-independent core: two axes (agent breadth vs program breadth),

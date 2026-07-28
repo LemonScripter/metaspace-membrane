@@ -342,6 +342,16 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
 - The agent membrane affects tool effects, not the model's prose; its shell check is a
   **structural allowlist** (`core/shell_policy.py`) — obfuscation-resistant and
   fail-closed.<!-- claim: C-02 --><!-- claim: C-05 -->
+- **The shell allowlist is defence-in-depth, not the boundary.** Shell interpreters are hardened
+  (`bash -c CMD` is re-checked recursively, piped stdin refused), but an allowlisted *language*
+  runtime is not an allowlist-shaped question: `python -c "…"` and `node -e "…"` execute code no
+  entry describes. Measured, not theorised — an agent refused `whoami` read the username through
+  `python -c`. A development agent needs those runtimes, so on shell-mediated hosts the guarantee
+  rests on the FILESYSTEM write-scope and the NETWORK out-scope, which mediate what such code can
+  actually *do*.<!-- claim: C-63 --><!-- claim: C-02 -->
+- A constitution's allowlist is parsed by one quote-aware parser, so a comment can never silently
+  empty it; an allowlist that is declared but unreadable **denies** rather than degrading to a
+  porous denylist.<!-- claim: C-62 -->
 - The epistemic tier has two parts, named honestly: a **hard tier** that is a real
   deterministic *membrane* (it contains/blocks)<!-- claim: C-48 -->, and a **soft tier** that is
   *not* a membrane but an **advisory flag** (it qualifies/flags, never blocks).<!-- claim: C-49 -->

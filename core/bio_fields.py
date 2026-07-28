@@ -33,10 +33,11 @@ def fields_from_bio(text):
         elif kind == "NETWORK" and mode == "out":
             network += scopes
         # FILESYSTEM deny is the self-protection rule — not a user-editable field
-    allow = []
-    for stmt in re.findall(r"ALLOW\s+([^;]*);", text or "", re.S):
-        allow += re.findall(r'"([^"]*)"', stmt)
-    deny = re.findall(r'DENY\s+"([^"]*)"', text or "")
+    # one parser for BASH_POLICY, shared with the hook and the fingerprint — the panel must not
+    # show the operator a different allowlist from the one the membrane enforces (O-20)
+    from core.bio_policy import parse_bash_allowlist, parse_bash_denylist
+    allow = parse_bash_allowlist(text or "")
+    deny = parse_bash_denylist(text or "")
     return {"write": write, "read": read, "network": network,
             "shell_allow": allow, "shell_deny": deny}
 

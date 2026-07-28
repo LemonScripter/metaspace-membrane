@@ -127,10 +127,20 @@ def _check_interpreter(toks, piped, allow, deny):
     return True, f"bare shell interpreter '{prog}' (no program specified)"
 
 
-def check(cmd: str, allow=None, deny=None):
-    """Structural decision. -> (True, reason) to allow, (False, reason) to deny (fail-closed)."""
+def check(cmd: str, allow=None, deny=None, allow_declared: bool = False):
+    """Structural decision. -> (True, reason) to allow, (False, reason) to deny (fail-closed).
+
+    `allow_declared` says the constitution DID state an allowlist. An empty `allow` is then a
+    parse failure, not a permissive policy, and must deny — otherwise the allowlist branch below
+    is skipped and the interpreter hardening goes with it, silently downgrading deny-by-default
+    to a porous denylist. That is how a semicolon inside a comment once emptied a real
+    constitution without a word of warning (O-20).
+    """
     allow = set(allow or [])
     deny = list(deny or [])
+    if allow_declared and not allow:
+        return False, ("the constitution declares a BASH_POLICY allowlist but no program could "
+                       "be read from it -> fail-closed (an empty allowlist is not a policy)")
     try:
         subs = _sub_commands_ex(cmd)
     except ValueError as e:

@@ -14,9 +14,11 @@ Produces:
 We serve the FULL feature set (every other flag keeps its real current value),
 so nothing else freezes or breaks -- we only loosen the one hook gate.
 """
-import json, os, sys
+import json, os, sys, tempfile
 
-TEMP = os.environ.get("TEMP") or os.environ.get("TMP") or r"C:\Users\lszok\AppData\Local\Temp"
+# never hard-code a developer's own path: this repo is public, and a fallback like
+# C:\Users\<name>\AppData\Local\Temp discloses the account it was written on
+TEMP = os.environ.get("TEMP") or os.environ.get("TMP") or tempfile.gettempdir()
 BACKUP = os.path.join(TEMP, "unleash-repo-schema-v1-codeium-language-server.json")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "features_patched.json")
 

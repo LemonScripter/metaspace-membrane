@@ -62,6 +62,8 @@ PROOFS = [
     ("Host profiles: agent differences are data, verdict reaches all (C-38)", "evidence/run_hostprofile_proof.py"),
     ("Multi-host install: merged, backed up, idempotent, refuses to guess", "evidence/run_multihost_install_proof.py"),
     ("Hermeticity: the evidence does not depend on the machine (C-61)", "evidence/run_hermeticity_proof.py"),
+    ("BASH_POLICY parse: a comment cannot empty the allowlist; empty fails closed (O-20)", "evidence/run_bashparse_proof.py"),
+    ("Antigravity bridge: agy's contract in, the Warden's verdict out, fail-closed (C-64)", "evidence/run_agy_adapter_proof.py"),
 ]
 
 

@@ -45,10 +45,18 @@ def _canon_knowledge(k: dict) -> dict:
 
 
 def policy_fingerprint(bio_text: str) -> str:
-    """A stable 16-hex fingerprint of the ENFORCED policy (not the raw text/comments)."""
+    """A stable 16-hex fingerprint of the ENFORCED policy (not the raw text/comments).
+
+    The bash denylist is read through the shared BASH_POLICY parser, so the fingerprint covers
+    what is actually enforced. Before that, a `DENY "…"` written inside a COMMENT counted
+    towards the fingerprint even though no membrane ever enforced it — the docstring's promise
+    ("not the raw text/comments") was not kept. Constitutions that keep their DENY statements in
+    code, which is all of them, fingerprint identically before and after (pinned by P-BASHPARSE).
+    """
     caps = sorted([k, m, sorted(s)] for k, m, s in parse_capabilities(bio_text))
     know = _canon_knowledge(parse_knowledge(bio_text))
-    bash = sorted(re.findall(r'DENY\s+"([^"]*)"', bio_text))
+    from core.bio_policy import parse_bash_denylist
+    bash = sorted(parse_bash_denylist(bio_text))
     payload = json.dumps({"cap": caps, "know": know, "bash": bash}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
