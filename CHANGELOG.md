@@ -6,6 +6,14 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-07-28
+
+**Security patch. Upgrade if you rely on the shell allowlist or denylist.** Every release up to
+and including **0.3.2 checked only the first line of a multi-line command**. With `git`
+allowlisted and `rm -rf` denied, `git status` followed by a newline and `rm -rf /` was **allowed**.
+Multi-line commands are how anyone writes more than one step, so this was reachable in ordinary
+use rather than only under attack. Two smaller shell-parsing defects are fixed alongside it.
+
 ### Fixed
 - **Security (fail-open): a newline did not separate commands.** `shlex` never emits a newline as
   a token, so the `"\n"` entry in the separator set was dead code and every line after the first
