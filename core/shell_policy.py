@@ -31,6 +31,7 @@ the command must not allow it.
 """
 
 import os
+import re
 import shlex
 
 # operators that separate one command from the next
@@ -52,6 +53,115 @@ def _is_assignment(tok: str) -> bool:
     return bool(_ASSIGN.match(tok))
 
 
+# heredoc opener: `<<DELIM`, `<<'DELIM'`, `<<"DELIM"`, `<<-DELIM`. The `(?!<)` keeps `<<<`
+# (a here-string, which has no body) out of this — that is stdin, not a body.
+_HEREDOC_START = re.compile(r"<<(?!<)-?[ \t]*(?:'([^']*)'|\"([^\"]*)\"|([A-Za-z_][A-Za-z0-9_]*))")
+
+
+def _strip_heredocs(cmd: str) -> str:
+    """Remove heredoc BODIES, keeping the command lines themselves (O-24).
+
+    A heredoc body is an argument, not a list of commands, but the tokenizer cannot know that:
+    shlex swallows the newlines, so `python - <<'PY' … PY` reached this policy as one sub-command
+    per body line and was refused for invoking "programs" like `p,`. Stripping the bodies before
+    tokenizing is what makes a body data again.
+
+    The `<<DELIM` operator is deliberately LEFT in place. It is what tells check() that this
+    sub-command feeds a script on stdin — harmless for `python`, and something that must stay
+    refused for a shell. Stripping the operator too would silently turn `bash <<'EOF'` into a
+    bare `bash`, which is allowed.
+
+    An unterminated heredoc raises ValueError, i.e. deny: a command whose extent cannot be
+    determined must not be allowed.
+    """
+    if "<<" not in cmd:
+        return cmd
+    lines = cmd.split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        i += 1
+        for m in _HEREDOC_START.finditer(line):
+            delim = m.group(1) or m.group(2) or m.group(3)
+            closed = False
+            while i < len(lines):
+                probe = lines[i].strip()
+                i += 1
+                if probe == delim:          # the terminator, alone on its line
+                    closed = True
+                    break
+            if not closed:
+                raise ValueError(f"unterminated heredoc <<{delim}")
+    return "\n".join(out)
+
+
+def _newlines_to_separators(cmd: str) -> str:
+    """Turn newlines OUTSIDE quotes into explicit `;` separators (O-25).
+
+    `shlex` with `whitespace_split=True` treats a newline as ordinary whitespace and never emits
+    it as a token, so the `"\\n"` entry in `_SEP` was dead code and every line after the first
+    merged into the first sub-command. Only the first line's program was checked, and the
+    denylist — which matches a token prefix — never saw the rest. `git status` followed by a
+    newline and `rm -rf /` was ALLOWED, with `rm -rf` explicitly denied.
+
+    Three cases must survive the substitution:
+      * a newline inside a quoted string is data (`python -c "print('a\\nb')"`) -> left alone;
+      * a trailing backslash is a line continuation -> the pair is dropped, joining the lines,
+        because splitting there would refuse a command the user never wrote;
+      * a backslash-escaped quote inside a string must not flip the quoting state.
+    Heredoc bodies are removed before this runs (see `_strip_heredocs`), so their lines cannot
+    become commands.
+    """
+    if "\n" not in cmd:
+        return cmd
+    out = []
+    quote = None          # None, "'" or '"'
+    i, n = 0, len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if quote == "'":
+            # inside single quotes nothing is special, not even a backslash
+            out.append(ch)
+            if ch == "'":
+                quote = None
+        elif quote == '"':
+            if ch == "\\" and i + 1 < n:
+                out.append(ch)
+                out.append(cmd[i + 1])
+                i += 2
+                continue
+            out.append(ch)
+            if ch == '"':
+                quote = None
+        else:
+            if ch in ("'", '"'):
+                quote = ch
+                out.append(ch)
+            elif ch == "\\" and i + 1 < n and cmd[i + 1] == "\n":
+                i += 2          # line continuation: drop the backslash AND the newline
+                continue
+            elif ch == "\\" and i + 2 < n and cmd[i + 1] == "\r" and cmd[i + 2] == "\n":
+                i += 3          # ...the CRLF spelling of the same thing
+                continue
+            elif ch == "\n":
+                # Collapse consecutive separators. A blank line would emit `;;`, and shlex groups
+                # a run of punctuation into ONE token — `;;` is not in _SEP, so it would be read
+                # as an ordinary word and the commands around it would merge again. Same for a
+                # line that already ends in `;`.
+                j = len(out) - 1
+                while j >= 0 and out[j] in (" ", "\t"):
+                    j -= 1
+                if j < 0 or out[j] != ";":
+                    out.append(";")
+            elif ch == "\r":
+                pass            # drop a bare CR; the following \n does the work
+            else:
+                out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _tokenize(cmd: str):
     """Punctuation-aware POSIX tokenization. Raises ValueError on unbalanced quotes."""
     lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
@@ -60,32 +170,39 @@ def _tokenize(cmd: str):
 
 
 def _sub_commands_ex(cmd: str):
-    """Split a command line into (tokens, piped_in) pairs, where piped_in is True when the
-    sub-command receives its stdin from a preceding `|`. Raises ValueError if the command
-    cannot be tokenized."""
-    tokens = _tokenize(cmd)
-    groups, cur, cur_piped, i = [], [], False, 0
+    """Split a command line into (tokens, piped_in, stdin_script) triples.
+
+    `piped_in` is True when the sub-command receives stdin from a preceding `|`.
+    `stdin_script` is True when it receives stdin from a heredoc or a here-string. The two differ
+    in origin and are identical in consequence for a shell: input this policy has not inspected.
+    Raises ValueError if the command cannot be tokenized or a heredoc is left unterminated.
+    """
+    # order matters: heredoc bodies go first, or their lines become commands at the next step
+    tokens = _tokenize(_newlines_to_separators(_strip_heredocs(cmd)))
+    groups, cur, cur_piped, cur_stdin, i = [], [], False, False, 0
     while i < len(tokens):
         t = tokens[i]
         if t in _SEP:
             if cur:
-                groups.append((cur, cur_piped))
-                cur = []
+                groups.append((cur, cur_piped, cur_stdin))
+                cur, cur_stdin = [], False
             cur_piped = (t == "|")   # the next sub-command is piped-in iff this separator is |
         elif t in _REDIR:
+            if t in ("<<", "<<-", "<<<"):
+                cur_stdin = True     # a script arrives on stdin; only the shell case is refused
             i += 1  # skip the redirect target token as well
         else:
             cur.append(t)
         i += 1
     if cur:
-        groups.append((cur, cur_piped))
+        groups.append((cur, cur_piped, cur_stdin))
     return groups
 
 
 def sub_commands(cmd: str):
     """Split a command line into sub-commands (each a list of tokens). Raises ValueError if
     the command cannot be tokenized."""
-    return [toks for toks, _piped in _sub_commands_ex(cmd)]
+    return [toks for toks, _piped, _stdin in _sub_commands_ex(cmd)]
 
 
 def program_names(cmd: str):
@@ -99,13 +216,16 @@ def program_names(cmd: str):
     return names
 
 
-def _check_interpreter(toks, piped, allow, deny):
+def _check_interpreter(toks, unverified_stdin, allow, deny):
     """An allowlisted shell interpreter (toks[0]) may only run allowlisted work. Returns
     (True, reason) if what it will execute is verifiably allowlisted, else (False, reason)."""
     prog = os.path.basename(toks[0])
-    # 1) piped-in stdin: the interpreter runs content we cannot see -> fail-closed
-    if piped:
-        return False, f"shell interpreter '{prog}' runs unverifiable piped stdin -> fail-closed"
+    # 1) stdin this policy cannot see — a pipe, a heredoc or a here-string. The shell executes it
+    #    verbatim, so there is nothing to check against the allowlist -> fail-closed. The
+    #    here-string case was a live hole: `<<<` is a redirection, so the operator and its target
+    #    were dropped and `bash <<< "…"` collapsed to a bare `bash`, which this function allows.
+    if unverified_stdin:
+        return False, f"shell interpreter '{prog}' runs unverifiable stdin -> fail-closed"
     args = toks[1:]
     # 2) -c / -lc / -xc "CMD": re-check the command string through this same policy
     for j, a in enumerate(args):
@@ -147,7 +267,7 @@ def check(cmd: str, allow=None, deny=None, allow_declared: bool = False):
         return False, f"unparseable shell command ({e}) -> fail-closed"
 
     # token-based denylist: a denied invocation is a prefix of a sub-command's tokens
-    for toks_raw, _piped in subs:
+    for toks_raw, _piped, _stdin in subs:
         toks = [t for t in toks_raw if not _is_assignment(t)]
         for entry in deny:
             dt = entry.split()
@@ -156,7 +276,7 @@ def check(cmd: str, allow=None, deny=None, allow_declared: bool = False):
 
     # allowlist: every invoked program must be explicitly allowed
     if allow:
-        for toks_raw, piped in subs:
+        for toks_raw, piped, stdin_script in subs:
             toks = [t for t in toks_raw if not _is_assignment(t)]
             if not toks:
                 continue
@@ -165,7 +285,7 @@ def check(cmd: str, allow=None, deny=None, allow_declared: bool = False):
                 return False, f"program '{name}' not in the allowlist"
             # an allowlisted interpreter must not become an allowlist bypass (see module docstring)
             if name in _SHELL_INTERPRETERS:
-                ok, reason = _check_interpreter(toks, piped, allow, deny)
+                ok, reason = _check_interpreter(toks, piped or stdin_script, allow, deny)
                 if not ok:
                     return False, reason
         return True, "all invoked programs are allowlisted"

@@ -7,6 +7,30 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 ## [Unreleased]
 
 ### Fixed
+- **Security (fail-open): a newline did not separate commands.** `shlex` never emits a newline as
+  a token, so the `"\n"` entry in the separator set was dead code and every line after the first
+  merged into the first sub-command. Only the first line's program was checked against the
+  allowlist, and the denylist, which matches a token prefix, never saw the rest. Measured with
+  `git` allowlisted and `rm -rf` denied — `git status`, newline, `rm -rf /` was **allowed**, as was
+  a `wget` on the second line. **Present in every release up to and including 0.3.2.** Multi-line
+  commands are ordinary, so this was reachable in normal use, not only under attack. Newlines
+  outside quotes now become explicit separators before tokenizing; quoted newlines stay data, a
+  trailing backslash joins its lines, and blank lines are collapsed (a bare `;;` is one token to
+  shlex and would have merged the commands around it again). (C-69 / O-25.)
+- **Security (fail-open): `bash <<< "…"` was allowed.** `<<<` is a redirection, so the operator and
+  its target were both dropped and the sub-command collapsed to a bare `bash` — "nothing specified
+  to run". A here-string is unverifiable shell input exactly like a pipe. The interpreter check now
+  refuses any unseen stdin. Found while writing the proof for C-68. (C-68 / O-24.)
+- **A heredoc body is no longer read as a list of commands.** `python - <<'PY' … PY` was refused
+  for invoking "programs" like `p,`. Bodies are stripped before tokenizing, while the `<<`
+  operator is kept — it is what marks the sub-command as stdin-fed, which is harmless for `python`
+  and must stay refused for a shell. (C-68 / O-24.)
+
+### Added
+- `run_heredoc_proof` (P-HEREDOC) and `run_multiline_proof` (P-MULTILINE), bringing the suite
+  to **50**.
+
+### Fixed
 - **The self-protection deny no longer swallows user data (C-66 / O-22).** Denying a host's whole
   config tree is what makes C-33 hold, but the tree also holds content the agent is meant to
   write: Claude Code keeps per-project memory under `~/.claude/projects/<slug>/memory/`. Measured

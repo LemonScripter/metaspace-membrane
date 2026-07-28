@@ -114,7 +114,8 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-65 | Hard containment on Antigravity, measured on a stock install | HARD | BLOCKED |
 | C-66 | The anchor deny guards the control surface, not the user's data | HARD | PROVEN |
 | C-67 | The user can ask what mode is actually in force, and where it came from | N/A | PLANNED |
-| C-68 | A heredoc body is data, not a command list | N/A | PLANNED |
+| C-68 | A heredoc body is data, not a command list | N/A | PROVEN |
+| C-69 | A newline separates commands; every line is checked | HARD | PROVEN |
 
 ---
 
@@ -683,16 +684,44 @@ which precedence step decided each (`env` / project settings / user file / built
 a machine where the two layers disagree.
 
 ### C-68 — A heredoc body is data, not a list of commands
-`[PROVEN]`-shaped but **STATUS:** PLANNED · **TIER:** N/A · **RELATED:** O-24
-`core/shell_policy.py` drops a redirection operator and its target, so `python - <<'PY'` loses the
-`PY` marker — but the heredoc *body* stays in the token stream, and every line of it is read as a
-sub-command whose first token must be allowlisted. A Python script passed on stdin therefore
-produces program names like `p,` or `do`, and is refused. The direction is safe (over-blocking,
-and loudly), and the interpreter hardening must keep refusing genuinely unverifiable piped stdin —
-`CMD | bash` has to stay denied. The distinction to draw is between stdin the shell will *execute*
-and a heredoc whose delimiter and target program are both visible in the command itself.
-**Acceptance:** `python - <<'PY' … PY` with an allowlisted interpreter is allowed while
-`curl … | bash` and `bash <<'EOF' … EOF` remain refused, each pinned by a falsifiable leg.
+`[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **DEPENDS:** C-02 · **Resolves:** O-24
+`_sub_commands_ex` drops a redirection operator and its target, so `python - <<'PY'` lost the `PY`
+marker — but the body stayed in the token stream, and every line of it was read as a sub-command
+whose first token had to be allowlisted. A Python script on stdin was therefore refused for
+invoking "programs" like `p,`. Bodies are now stripped before tokenizing, which makes a body an
+argument again.
+**The operator is deliberately kept.** It is what marks the sub-command as fed from stdin, which
+is harmless for `python` and must stay refused for a shell. Removing it too would have turned
+`bash <<'EOF'` into a bare `bash` — allowed — so the fix for an over-block would have opened a hole.
+**A live fail-open found while writing the proof:** `bash <<< "…"` was ALLOWED. `<<<` is in
+`_REDIR`, so operator and target were both dropped and the sub-command collapsed to a bare `bash`.
+A here-string is unverifiable shell input exactly like a pipe; the interpreter check now refuses
+any unseen stdin rather than pipes only.
+**PROOF:** `run_heredoc_proof` (P-HEREDOC) — an allowlisted interpreter may take a heredoc even
+when the body is full of command-looking text; a shell fed a heredoc, a here-string or a pipe is
+refused; the allowlist still governs the program; an unterminated heredoc fails closed.
+**VERIFIED:** Win (2026-07-28)
+
+### C-69 — A newline separates commands: every line is checked, not just the first
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-02 · **Resolves:** O-25
+**CONDITION:** as C-02 — the host routes shell effects through the hook and the verdict is
+authoritative.
+**The fail-open:** `shlex` with `whitespace_split=True` treats a newline as ordinary whitespace and
+never emits it as a token, so the `"\n"` entry in `_SEP` was dead code. Every line after the first
+merged into the first sub-command: only the first line's program was checked, and the denylist,
+which matches a token prefix, never saw the rest. Measured with `git` allowlisted and `rm -rf`
+denied — `git status`, newline, `rm -rf /` was **ALLOWED**, as was a `wget` on the second line.
+A multi-line Bash command is not exotic; it is how anyone writes more than one step. Present in
+every release up to and including **0.3.2**.
+**Fix:** newlines outside quotes become explicit `;` separators before tokenizing. Three cases
+survive it: a newline inside quotes stays data; a trailing backslash joins its lines rather than
+splitting them; and consecutive separators are collapsed, because a blank line would emit `;;`,
+which shlex groups into a single token that is not in `_SEP` — the commands around it would have
+merged again. Ordered after heredoc stripping, so a body's lines cannot become commands.
+**PROOF:** `run_multiline_proof` (P-MULTILINE) — the two commands that were allowed are refused;
+ordinary multi-line work still runs; quoted newlines and line continuations behave; it composes
+with C-68; `;` and `&&` still separate.
+**VERIFIED:** Win (2026-07-28)
 
 ---
 
@@ -725,7 +754,8 @@ and a heredoc whose delimiter and target program are both visible in the command
 | **O-19** | **An allowlisted non-shell interpreter is a universal exec bypass.** `core/shell_policy.py` hardens shell interpreters (`_SHELL_INTERPRETERS` = sh/bash/zsh/dash/ksh/ash: `bash -c CMD` is re-checked recursively, piped stdin refused), but `python`/`node`/`perl`/`ruby` are NOT in that set, so an allowlisted `python -c "…"` or `node -e "…"` runs code the allowlist never inspects. Measured live: agy, blocked from `whoami`, read the username via `python -c "import os; print(os.environ['USERNAME'])"`. A dev agent needs python/node, so for shell-mediated hosts the containment guarantee rests on the FILESYSTEM write-scope and NETWORK out-scope — not the BASH allowlist, which is defense-in-depth only. Must be stated publicly, not implied. **Accepted as a limit and published rather than fixed:** removing `python`/`node` from the allowlist would disarm the agent, and adding them to `_SHELL_INTERPRETERS` cannot work — there is no allowlist-shaped question to ask of `python -c "…"`. **Stated as C-63** in the ledger, README and SECURITY.md, so no reader can mistake the allowlist for the boundary. | empirical run + code | ACCEPTED-LIMIT | — |
 | **O-20** | **A semicolon inside a comment in an `ALLOW` block silently empties the allowlist — a fail-OPEN.** The allow/deny parse (triplicated per O-2) uses `ALLOW\s+([^;]*);`, which stops at the first semicolon; a comment like `# runtimes (dev necessity; node too)` truncates the capture to zero programs. An empty allowlist makes `shell_policy.check` skip BOTH the allowlist AND the interpreter hardening of O-19, leaving only the top-level denylist — a silent downgrade from deny-by-default to a porous denylist, emitting no error. Found while tuning the agy constitution. The fix belongs in the parser (strip comments before matching), not in a "no semicolons in comments" convention. **RESOLVED by C-62:** one quote-aware parser (`core/bio_policy.py`) replaces the three copies, scoped to the `BASH_POLICY` block since `ALLOW` is also the DEPENDENCIES keyword; and, independently of the regex, a *declared* allowlist that yields no program now denies (`shell_policy.check(..., allow_declared=True)`), so the whole class fails loudly instead of silently. Exposure measured across all 22 constitutions on the machine: none had been degraded, no ratification fingerprint moved. | empirical run + code | RESOLVED | — |
 | **O-23** | **A user can believe the membrane is enforcing while it is only observing.** Hosts layer their configuration — Claude Code reads a project `.claude/settings.json` over the user-level one — and the `env` block of the winning file is exported into **every tool subprocess**, not only into the hook. Measured 2026-07-28: `METASPACE_MODE=enforce` set in `~/.claude/settings.json` changed nothing, because a project file still said `dryrun`, and the only way to discover that was to read `eff_mode` out of the audit log. `metaspace install` writes the user level, so an installation can be silently overridden by a file it never consults. The same export also leaked `METASPACE_PROJECT_ROOT` into the proof suite (fixed under C-61, but the leak is a property of the host, not of the suite). **A false belief in protection is worse than a known observe-mode.** It blocks nothing that is asserted — every containment claim is proven against a *stated* mode, and none of them claims the user can tell which mode is in force — but that is precisely the gap. Fix: C-67. | **empirical run** (audit `eff_mode` vs. two settings files) | OPEN | — |
-| **O-24** | **The structural shell policy reads a heredoc body as commands.** `_sub_commands_ex` drops a redirection operator and its target, so `python - <<'PY'` loses `PY`, but the body that follows stays in the token stream and each line is treated as a sub-command needing an allowlisted program name. A Python script passed on stdin is therefore refused with messages naming programs like `p,` or `do`. Found the moment enforce was switched on, having appeared 12 times in the preceding dry-run audit without being understood. Over-blocking, so the direction is safe, but it pushes the operator towards writing scripts to disk or widening the allowlist with tokens that are not programs — both worse than the fix. Care is required: the interpreter hardening must keep refusing a pipe into `bash`, where the shell executes stdin it cannot see. Fix: C-68. | **empirical run** (blocked live) + code | OPEN | — |
+| **O-24** | **The structural shell policy reads a heredoc body as commands.** `_sub_commands_ex` drops a redirection operator and its target, so `python - <<'PY'` loses `PY`, but the body that follows stays in the token stream and each line is treated as a sub-command needing an allowlisted program name. A Python script passed on stdin is therefore refused with messages naming programs like `p,` or `do`. Found the moment enforce was switched on, having appeared 12 times in the preceding dry-run audit without being understood. Over-blocking, so the direction is safe, but it pushes the operator towards writing scripts to disk or widening the allowlist with tokens that are not programs — both worse than the fix. Care is required: the interpreter hardening must keep refusing a pipe into `bash`, where the shell executes stdin it cannot see. **RESOLVED by C-68:** bodies are stripped before tokenizing while the `<<` operator is kept, so a shell fed a heredoc is still refused. Writing that proof also exposed a live fail-open — `bash <<< "…"` was allowed, because `<<<` is a redirection whose operator and target were both dropped, collapsing the sub-command to a bare `bash`. The interpreter check now refuses any unseen stdin, not pipes only. | **empirical run** (blocked live) + code | RESOLVED | — |
+| **O-25** | **A newline did not separate commands — a fail-OPEN in every release up to 0.3.2.** `shlex` with `whitespace_split=True` treats a newline as ordinary whitespace and never emits it as a token, so the `"\n"` entry in `_SEP` was dead code and every line after the first merged into the first sub-command. Only the first line's program was checked against the allowlist, and the denylist, which matches a token prefix, never saw the later commands. Measured with `git` allowlisted and `rm -rf` denied: `git status` followed by a newline and `rm -rf /` was **ALLOWED**, and so was a `wget` on a second line. Found while proving C-68 — the heredoc fix exposed it, because stripping the body left a following command merged into the same sub-command. Multi-line commands are ordinary, so this was reachable in normal use, not only under an attack. **RESOLVED by C-69:** newlines outside quotes become explicit separators before tokenizing, with quoted newlines, line continuations and blank lines each handled and pinned by a proof leg. | **empirical run** + code | RESOLVED | — |
 | **O-22** | **The code-injected anchor denies protect a host's whole config tree, including user data that legitimately lives there.** `core/agent_anchors.py` denies `~/.claude/**` (and the equivalent for every other known host), and FILESYSTEM deny is an unconditional override of write (`core/guard.py:125`). That is correct for configuration — it is what makes C-33/C-59 hold — but the tree is not only configuration: Claude Code keeps **per-project memory** under `~/.claude/projects/<slug>/memory/`, which is user content, not an agent switch. Measured on the developer machine, 2026-07-28: with the anchors injected, a write to that memory directory is DENIED even though the constitution explicitly grants it, so enabling `enforce` silently ends cross-session memory. A constitution cannot except itself from a code-injected deny — by design, since that escape hatch is exactly what C-33 exists to remove — so this cannot be fixed in a `.bio`. The narrow fix is to inject file/subtree-precise denies (`settings*.json`, `metaspace/**`, `plugins/**`) instead of the whole anchor; the risk of narrowing is that C-59's guarantee was built on total coverage, so any exclusion list becomes a place to forget a file. **Not a fail-open** — it over-blocks, which is the safe direction — and it blocks no claim: C-59 asserts that every anchor is covered, which remains true. **RESOLVED by C-66:** the tree stays denied and a short code-defined carve-out (`DATA_CARVEOUTS` in `core/agent_anchors.py`) is exempted, so forgetting an entry over-blocks rather than opening a hole; the constitution still has to grant the path, and cannot declare exemptions of its own. | **empirical run** (guard, real constitution) | RESOLVED | — |
 | **O-21** | **Antigravity's hook execution is gated by a server-side feature flag, not by anything local.** `agy` loads `.agents/hooks.json` but its `customizations.Manager.isFeatureEnabled` asks an in-process Unleash client about `json-hooks-enabled`, which is globally enabled yet constrained to `ide=jetski`; `agy` reports `product=antigravity`, so hooks load and never fire. Established by measurement, then confirmed by inversion: redirecting that client to a local mock with the constraint stripped makes agy both load and execute the hooks, and the Warden then blocks live shell and out-of-scope writes. **Nothing local can lift this** — it is a vendor rollout decision, not a configuration. Split out of O-16, which is otherwise resolved: the bridge exists and is proven (C-64); what is missing is a stock host that calls it. Watch for the flag reaching `product=antigravity`, or for another ingress in a later release. | **empirical run** (mock inversion) | OPEN | C-65 |
 

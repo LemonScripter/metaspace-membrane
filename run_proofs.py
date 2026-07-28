@@ -65,6 +65,8 @@ PROOFS = [
     ("BASH_POLICY parse: a comment cannot empty the allowlist; empty fails closed (O-20)", "evidence/run_bashparse_proof.py"),
     ("Antigravity bridge: agy's contract in, the Warden's verdict out, fail-closed (C-64)", "evidence/run_agy_adapter_proof.py"),
     ("Anchor carve-out: user data writable, control surface sealed (C-66/O-22)", "evidence/run_anchor_carveout_proof.py"),
+    ("Heredoc bodies are data; a shell may still not execute unseen stdin (C-68/O-24)", "evidence/run_heredoc_proof.py"),
+    ("A newline separates commands — later lines are checked (C-69/O-25)", "evidence/run_multiline_proof.py"),
 ]
 
 
