@@ -6,6 +6,20 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-07-28
+
+**Security patch. Upgrade if you use the shell allowlist.** Releases up to and including
+**0.3.1 shipped a fail-open**: a comment containing a semicolon inside a `BASH_POLICY ALLOW`
+statement emptied the allowlist, and an empty allowlist disabled the allowlist *and* the
+shell-interpreter hardening, leaving a porous denylist with nothing logged. Constitutions
+without such a comment were unaffected — all 22 on the development machine were re-parsed and
+none had been degraded — but the exposure depended on how a constitution happened to be
+written, which is not a property anyone should have to check by hand.
+
+This release also lands the documentation and ledger work that had accumulated since 0.3.1
+(the single claim ledger and its machine-checked invariants, the agent-agnostic rationale,
+Antigravity host support) — it is a security patch by priority, not by content.
+
 ### Fixed
 - **Security (fail-open): a comment could silently empty a constitution's shell allowlist.**
   The `BASH_POLICY` allow/deny statements were parsed with `ALLOW\s+([^;]*);` against raw text,
@@ -26,6 +40,19 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   This repository is public.
 
 ### Added
+- **`P-VERSION` now covers `CITATION.cff`.** It had drifted unchecked for three releases and is
+  the only manifest that also carries a **DOI**, so a stale entry is a false statement about the
+  archived artefact rather than a cosmetic slip. Caught immediately: the 0.3.2 bump would have
+  shipped citation metadata reading `0.3.1`. The DOI itself is deliberately not compared to the
+  version — Zenodo mints it *after* the release exists — but it must be present, well-formed, and
+  identical in the README badge and the citation file, the pair most likely to fall out of step.
+- **`evidence/release_check.py` — a release gate that tests the artefact, not the repository.**
+  Installs the built wheel into a clean virtualenv and runs the O-20 attack against the hook in
+  *site-packages*. `v0.3.0` shipped with a green suite and a package that could not run, so a
+  passing suite is not evidence about what `pip install` delivers. Deliberately outside
+  `run_proofs.py` (it needs a build and a venv). It produced two false PASSes before it was
+  trusted — the repo shadowed the artefact via `cwd` on `sys.path`, and `products` is a PEP 420
+  namespace package whose `__file__` is `None` — both now guarded and documented in the file.
 - **Two proofs, bringing the suite to 47.** `run_bashparse_proof` (P-BASHPARSE) pins the
   allowlist parse against the real hook, including the pipe-to-shell command an empty allowlist
   waves through; `run_agy_adapter_proof` (P-AGY) drives the Antigravity bridge hermetically —
