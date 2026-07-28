@@ -13,11 +13,19 @@ the file most easily forgotten, because nothing imports it and no test touched i
 one function; leaving it out was one release away from publishing a `0.3.2` whose own citation
 metadata said `0.3.1`.
 
-THE DOI IS DELIBERATELY NOT CHECKED FOR EQUALITY WITH ANYTHING. Zenodo mints the version DOI
+THE DOI IS DELIBERATELY NOT CHECKED FOR EQUALITY WITH THE VERSION. Zenodo mints the version DOI
 *after* the GitHub release exists, so at tag time no correct value can be present — an ordering
-fact, not an oversight. What IS checked is that a DOI is present and well-formed, and that the
-README badge and the CITATION file quote the SAME one, since those two are updated by hand in the
-same follow-up step and are the pair most likely to fall out of step.
+fact, not an oversight.
+
+WHAT IS CHECKED, AND WHY IT IS NOT PLAIN EQUALITY. The first version of this proof required the
+README badge and `CITATION.cff` to quote the *same* DOI. That was wrong, and it broke as soon as
+the DOIs were set correctly for 0.3.2: the two files answer different questions and should not
+carry the same value. A badge means "this project", so it takes the **concept DOI**, which always
+resolves to the newest archived version and therefore never needs a manual edit again. A citation
+means "the exact thing I ran", so `CITATION.cff` pins the **version DOI**. The rule that survives
+both is: every DOI in the README must be one that `CITATION.cff` also declares — as its `doi` or
+among its `identifiers`. That still catches the real failure (a badge pointing at an archive the
+citation metadata knows nothing about) without forcing two files to lie about their purpose.
 
 Run: python run_version_proof.py   (exit 0 iff everything agrees)
 """
@@ -59,21 +67,20 @@ def citation_version():
     return m.group(1) if m else None
 
 
-def citation_doi():
+def citation_dois():
+    """Every DOI the citation metadata declares: the `doi` field and all `identifiers`."""
     text = open(os.path.join(REPO, "CITATION.cff"), encoding="utf-8").read()
-    m = _DOI_RE.search(text)
-    return m.group(0) if m else None
+    return _DOI_RE.findall(text)
 
 
-def readme_doi():
+def readme_dois():
     text = open(os.path.join(REPO, "README.md"), encoding="utf-8").read()
-    found = _DOI_RE.findall(text)
-    return found[0] if found else None
+    return _DOI_RE.findall(text)
 
 
 def main():
     py, pl, cl, cf = pyproject_version(), plugin_version(), cli_version(), citation_version()
-    c_doi, r_doi = citation_doi(), readme_doi()
+    c_dois, r_dois = citation_dois(), readme_dois()
     print("=" * 66)
     print("  P-VERSION — version parity across manifests, CLI and citation")
     print("=" * 66)
@@ -81,8 +88,8 @@ def main():
     print("  plugin.json         :", pl)
     print("  metaspace --version :", cl)
     print("  CITATION.cff        :", cf)
-    print("  DOI (CITATION.cff)  :", c_doi)
-    print("  DOI (README badge)  :", r_doi)
+    print("  DOI (CITATION.cff)  :", ", ".join(c_dois) or None)
+    print("  DOI (README)        :", ", ".join(r_dois) or None)
     print("-" * 66)
 
     failures = []
@@ -90,12 +97,14 @@ def main():
         failures.append("pyproject / plugin.json / CLI disagree")
     if cf != py:
         failures.append(f"CITATION.cff says {cf}, the package says {py}")
-    if not c_doi:
+    if not c_dois:
         failures.append("CITATION.cff carries no well-formed Zenodo DOI")
-    if not r_doi:
+    if not r_dois:
         failures.append("README carries no well-formed Zenodo DOI badge")
-    if c_doi and r_doi and c_doi != r_doi:
-        failures.append(f"README DOI {r_doi} != CITATION DOI {c_doi}")
+    for d in r_dois:
+        if d not in c_dois:
+            failures.append(f"README cites {d}, which CITATION.cff does not declare "
+                            f"(it declares: {', '.join(c_dois) or 'nothing'})")
 
     if failures:
         print("  RESULT: FAIL")
