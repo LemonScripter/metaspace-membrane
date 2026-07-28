@@ -25,6 +25,22 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ### Added
 - `run_anchor_carveout_proof` (P-CARVEOUT), bringing the suite to **48**.
+- **Two obstacles found by running a real installation in `enforce` (O-23, O-24), with the
+  planned fixes recorded as C-67 and C-68.** Neither is a containment hole; both are the kind of
+  gap that only surfaces under real use.
+  - **O-23 — you cannot ask what mode is actually in force.** Hosts layer their settings: a
+    project `.claude/settings.json` beats the user-level one, and the winning `env` block is
+    exported into every tool subprocess. `METASPACE_MODE=enforce` set in the user file changed
+    nothing because a project file still said `dryrun`, and the only way to see that was to read
+    `eff_mode` out of the audit. `metaspace install` writes the user level, so an install can be
+    overridden by a file it never consults. A false belief in protection is worse than a known
+    observe-mode. **C-67** plans a `status` command reporting the effective mode, the constitution
+    in force, and which precedence step decided each.
+  - **O-24 — a heredoc body is read as commands.** `python - <<'PY' … PY` is refused with program
+    names like `p,`, because the redirect target is dropped but the body stays in the token
+    stream. Over-blocking, so the direction is safe, but it pushes users towards widening the
+    allowlist with tokens that are not programs. **C-68** plans the fix, with the constraint that
+    a pipe into `bash` must keep being refused.
 
 ## [0.3.2] — 2026-07-28
 
