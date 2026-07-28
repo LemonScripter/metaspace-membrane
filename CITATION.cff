@@ -9,11 +9,11 @@ authors:
     affiliation: "MetaSpace.Bio Engine Project"
 repository-code: "https://github.com/LemonScripter/metaspace-membrane"
 url: "https://metaspace.bio"
-doi: "10.5281/zenodo.21641103"
+doi: "10.5281/zenodo.21651460"
 identifiers:
   - type: doi
-    value: "10.5281/zenodo.21641103"
-    description: "Zenodo archive of release v0.3.2"
+    value: "10.5281/zenodo.21651460"
+    description: "Zenodo archive of release v0.3.3"
   - type: doi
     value: "10.5281/zenodo.21426513"
     description: "Zenodo concept DOI — always resolves to the latest version"
