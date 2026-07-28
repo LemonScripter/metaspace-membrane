@@ -6,6 +6,45 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+### Fixed
+An adversarial pass over the two files that turn text into a decision —
+`core/shell_policy.py` and `core/bio_policy.py`. Five defects had been found there in a single
+day, four of them fail-open, all at the same seam; this pass went looking rather than waiting.
+Six more were found, five fail-open.
+
+- **Security (fail-open): a metacharacter missing from the separator list separated nothing.**
+  shlex groups a punctuation run into one token, and membership was tested against a fixed list of
+  spellings. The pipe-with-stderr and case-fallthrough operators were absent, so a `curl` piped
+  that way into `bash` collapsed into a single sub-command named `curl` — the `bash` was never
+  checked and the interpreter hardening never ran. Membership is now tested **per character**.
+  (C-70 / O-27.)
+- **Security (fail-open): backtick substitution was not a command.** `$( … )` split only because
+  parentheses happen to be separators; `` echo `rm -rf /` `` did not split at all. Backticks are
+  now expanded in the same quote-aware pass as newlines, including inside double quotes, where the
+  string is closed around the substitution and reopened after it. (C-70 / O-27.)
+- **Security (fail-open): program names were compared as plain strings.** Windows resolves
+  commands case-insensitively and its executables carry `.exe`. In denylist-only mode `RM -RF /`
+  **ran** under a denylist forbidding `rm -rf`. The same cause refused a virtualenv interpreter
+  given by path although `python` was allowlisted. Comparison is now OS-aware; only `.exe` is
+  stripped, and case is folded only on Windows. (C-71 / O-26.)
+- **Security (fail-open): a written DENY could be silently absent.** `DENY 'git push'` — single
+  quotes — was dropped with no error, and `git -C /tmp/repo push` slipped past `git push` because
+  matching was an exact token prefix. Both quoting styles are parsed now, and the denied words must
+  appear **in order** among the arguments. Accepted over-block, stated rather than discovered
+  later: `git commit -m push` now matches too. (C-72 / O-28.)
+- A `.bio` comment-stripper that tracked only double quotes now tracks which quote opened a string,
+  so an apostrophe inside a double-quoted scope no longer opens one.
+
+### Added
+- `run_shellparse_adversarial_proof` (P-SHELLADV), bringing the suite to **51**.
+
+### Known
+- **O-29 — shell keywords are read as program names**, so `for … do … done` is refused for
+  invoking a program called `for`. Over-blocking, and deliberately not fixed in the same pass: the
+  repair is shell grammar, not a lookup, and the halves differ — `if`/`then`/`do`/`while` are
+  followed by a command that must still be checked, while `for`/`case`/`in` are followed by a word
+  list that is not an invocation. Getting that backwards would hide a command behind a keyword.
+
 ## [0.3.3] — 2026-07-28
 
 **Security patch. Upgrade if you rely on the shell allowlist or denylist.** Every release up to

@@ -34,14 +34,50 @@ import os
 import re
 import shlex
 
-# operators that separate one command from the next
-_SEP = {";", "&&", "||", "|", "&", "\n", "(", ")"}
+# Characters that, on their own or in any run, separate one command from the next. Membership is
+# tested per-CHARACTER rather than against a list of spellings, because shlex groups a run of
+# punctuation into ONE token: `|&` and `;&` are real shell operators that were not in the old list
+# and therefore did not separate anything, so `curl … |& bash` collapsed into a single sub-command
+# whose program was `curl` — the `bash` was never checked and the interpreter hardening never ran.
+# A list of spellings is the wrong shape here for the same reason an allowlist of file names was
+# wrong in O-22: whatever it forgets, fails open.
+_SEP_CHARS = set(";|&")
+# grouping tokens, which also end a command
+_GROUP = {"(", ")"}
+_SEP = {";", "&&", "||", "|", "&", "\n", "(", ")"}   # kept for callers that import it
 # redirection operators: drop the operator AND its target token (a file, not a command)
 _REDIR = {">", ">>", "<", "<<", "<<<", "2>", "2>>", "&>", ">&", "1>", "1>>"}
 # shell interpreters: allowlisting one voids the allowlist (they run ANY program), so an
 # interpreter is only allowed if what it will execute is itself allowlisted (see check()).
 _SHELL_INTERPRETERS = {"sh", "bash", "zsh", "dash", "ksh", "ash"}
 _ASSIGN = None  # compiled lazily
+
+
+def _is_separator(tok: str) -> bool:
+    """True for any token made only of separator punctuation (`;`, `|`, `&`) or a grouping paren."""
+    return tok in _GROUP or (bool(tok) and all(c in _SEP_CHARS for c in tok))
+
+
+def _prog_name(tok: str) -> str:
+    """The program a token names, compared the way the OS resolves it (O-26).
+
+    Windows is case-insensitive and its executables carry `.exe`, so a plain string match got two
+    things wrong at once: `RM -RF /` ran under a denylist that forbade `rm -rf`, and a venv
+    interpreter given by path was refused although `python` was allowlisted. Only `.exe` is
+    stripped — a `foo.bat` or `foo.cmd` is a script, not the same artefact as bare `foo`, and
+    treating them as equal would let a script inherit an allowlist entry meant for a binary.
+    """
+    name = os.path.basename(tok)
+    if os.name == "nt":
+        name = name.lower()
+        if name.endswith(".exe"):
+            name = name[:-4]
+    return name
+
+
+def _fold(tok: str) -> str:
+    """Case-fold a non-program token where the OS would. Errs towards matching more."""
+    return tok.lower() if os.name == "nt" else tok
 
 
 def _is_assignment(tok: str) -> bool:
@@ -113,10 +149,11 @@ def _newlines_to_separators(cmd: str) -> str:
     Heredoc bodies are removed before this runs (see `_strip_heredocs`), so their lines cannot
     become commands.
     """
-    if "\n" not in cmd:
+    if "\n" not in cmd and "`" not in cmd:
         return cmd
     out = []
     quote = None          # None, "'" or '"'
+    reopen = False        # a substitution was opened from inside a double-quoted string
     i, n = 0, len(cmd)
     while i < n:
         ch = cmd[i]
@@ -131,6 +168,15 @@ def _newlines_to_separators(cmd: str) -> str:
                 out.append(cmd[i + 1])
                 i += 2
                 continue
+            if ch == "`":
+                # A backtick substitutes INSIDE double quotes too. Close the quote around the
+                # separator so the substituted command comes out into the open, where it is
+                # checked like any other; `reopen` puts the string back together at the closing
+                # backtick, or shlex would see an unbalanced quote and deny a legitimate command.
+                out.append('" ; ')
+                quote, reopen = None, True
+                i += 1
+                continue
             out.append(ch)
             if ch == '"':
                 quote = None
@@ -144,6 +190,17 @@ def _newlines_to_separators(cmd: str) -> str:
             elif ch == "\\" and i + 2 < n and cmd[i + 1] == "\r" and cmd[i + 2] == "\n":
                 i += 3          # ...the CRLF spelling of the same thing
                 continue
+            elif ch == "`":
+                # Backtick substitution runs a command, exactly like `$( … )` — which already
+                # split, but only by accident, because parentheses are separators. A backtick is
+                # not punctuation to shlex, so `` echo `rm -rf /` `` arrived as one sub-command
+                # named `echo`. Turning each backtick into a separator makes the substituted
+                # command a sub-command of its own, which is what it is.
+                if reopen:
+                    out.append(' ; "')      # closing backtick of a substitution inside a string
+                    quote, reopen = '"', False
+                else:
+                    out.append(";")
             elif ch == "\n":
                 # Collapse consecutive separators. A blank line would emit `;;`, and shlex groups
                 # a run of punctuation into ONE token — `;;` is not in _SEP, so it would be read
@@ -182,15 +239,17 @@ def _sub_commands_ex(cmd: str):
     groups, cur, cur_piped, cur_stdin, i = [], [], False, False, 0
     while i < len(tokens):
         t = tokens[i]
-        if t in _SEP:
+        if t in _REDIR:
+            if t in ("<<", "<<-", "<<<"):
+                cur_stdin = True     # a script arrives on stdin; only the shell case is refused
+            i += 2                   # skip the redirect target token as well
+            continue
+        if _is_separator(t):
             if cur:
                 groups.append((cur, cur_piped, cur_stdin))
                 cur, cur_stdin = [], False
-            cur_piped = (t == "|")   # the next sub-command is piped-in iff this separator is |
-        elif t in _REDIR:
-            if t in ("<<", "<<-", "<<<"):
-                cur_stdin = True     # a script arrives on stdin; only the shell case is refused
-            i += 1  # skip the redirect target token as well
+            # the next sub-command reads stdin from the previous one iff a pipe is involved
+            cur_piped = ("|" in t)
         else:
             cur.append(t)
         i += 1
@@ -212,14 +271,14 @@ def program_names(cmd: str):
     for sub in sub_commands(cmd):
         toks = [t for t in sub if not _is_assignment(t)]
         if toks:
-            names.add(os.path.basename(toks[0]))
+            names.add(_prog_name(toks[0]))
     return names
 
 
 def _check_interpreter(toks, unverified_stdin, allow, deny):
     """An allowlisted shell interpreter (toks[0]) may only run allowlisted work. Returns
     (True, reason) if what it will execute is verifiably allowlisted, else (False, reason)."""
-    prog = os.path.basename(toks[0])
+    prog = _prog_name(toks[0])
     # 1) stdin this policy cannot see — a pipe, a heredoc or a here-string. The shell executes it
     #    verbatim, so there is nothing to check against the allowlist -> fail-closed. The
     #    here-string case was a live hole: `<<<` is a redirection, so the operator and its target
@@ -239,7 +298,7 @@ def _check_interpreter(toks, unverified_stdin, allow, deny):
     for a in args:
         if a.startswith("-"):
             continue
-        script = os.path.basename(a)
+        script = _prog_name(a)
         if script not in allow:
             return False, f"shell script '{script}' run by '{prog}' is not in the allowlist"
         return True, f"shell script '{script}' allowlisted"
@@ -266,21 +325,37 @@ def check(cmd: str, allow=None, deny=None, allow_declared: bool = False):
     except ValueError as e:
         return False, f"unparseable shell command ({e}) -> fail-closed"
 
-    # token-based denylist: a denied invocation is a prefix of a sub-command's tokens
+    # Token-based denylist. The denied program must be this sub-command's program, and the
+    # remaining words must appear IN ORDER among its arguments — not as an exact prefix, which
+    # `git -C /tmp/repo push` walked straight past by putting an option in between.
+    # Accepted over-block, stated rather than hidden: `git commit -m push` also matches, because
+    # after quote removal the message IS the token `push`. Refusing too much is loud; refusing too
+    # little is what O-25 was.
     for toks_raw, _piped, _stdin in subs:
         toks = [t for t in toks_raw if not _is_assignment(t)]
+        if not toks:
+            continue
+        prog = _prog_name(toks[0])
+        rest = [_fold(t) for t in toks[1:]]
         for entry in deny:
             dt = entry.split()
-            if dt and toks[:len(dt)] == dt:
+            if not dt or _prog_name(dt[0]) != prog:
+                continue
+            wanted, k = [_fold(x) for x in dt[1:]], 0
+            for tok in rest:
+                if k < len(wanted) and tok == wanted[k]:
+                    k += 1
+            if k == len(wanted):
                 return False, f"denied invocation: {' '.join(dt)}"
 
     # allowlist: every invoked program must be explicitly allowed
     if allow:
+        allow = {_prog_name(a) for a in allow}
         for toks_raw, piped, stdin_script in subs:
             toks = [t for t in toks_raw if not _is_assignment(t)]
             if not toks:
                 continue
-            name = os.path.basename(toks[0])
+            name = _prog_name(toks[0])
             if name not in allow:
                 return False, f"program '{name}' not in the allowlist"
             # an allowlisted interpreter must not become an allowlist bypass (see module docstring)

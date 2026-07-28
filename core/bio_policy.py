@@ -33,8 +33,10 @@ __all__ = ["strip_comments", "bash_policy_block", "parse_bash_allowlist",
            "parse_bash_denylist", "declares_allow"]
 
 _ALLOW_STMT = re.compile(r"\bALLOW\b\s*([^;]*);", re.S)
-_QUOTED = re.compile(r'"([^"]*)"')
-_DENY_STMT = re.compile(r'\bDENY\b\s+"([^"]*)"')
+# Both quoting styles. `DENY 'git push'` used to be dropped silently: the author wrote a denial,
+# the membrane did not enforce it, and nothing said so — the O-20 family again, in a second file.
+_QUOTED = re.compile(r'"([^"]*)"' r"|'([^']*)'")
+_DENY_STMT = re.compile(r'\bDENY\b\s+(?:"([^"]*)"' r"|'([^']*)')")
 _ALLOW_KW = re.compile(r"\bALLOW\b")
 _BASH_BLOCK = re.compile(r"\bBASH_POLICY\b\s*\{")
 
@@ -47,21 +49,33 @@ def strip_comments(text):
     rather than guessed at: the downstream parsers are the ones that must fail closed on it.
     """
     out = []
-    in_str = False
     for line in (text or "").splitlines():
         buf = []
-        i = 0
-        while i < len(line):
-            ch = line[i]
-            if ch == '"':
-                in_str = not in_str
-            elif ch == "#" and not in_str:
+        quote = None           # None, '"' or "'" — which character opened the string
+        for ch in line:
+            if quote:
+                buf.append(ch)
+                if ch == quote:
+                    quote = None
+            elif ch in ('"', "'"):
+                quote = ch     # tracking WHICH quote matters: an apostrophe inside a
+                buf.append(ch) # double-quoted scope must not open a string
+            elif ch == "#":
                 break          # rest of the line is a comment
-            buf.append(ch)
-            i += 1
+            else:
+                buf.append(ch)
         out.append("".join(buf))
-        in_str = False         # a string does not span lines in .bio
+                               # a string does not span lines in .bio, so state resets per line
     return "\n".join(out)
+
+
+def _quoted_values(text):
+    """Every quoted string in `text`, either quoting style, in order.
+
+    The patterns use alternation, so `findall` yields a tuple per match with one group filled.
+    Collapsing that here keeps both callers from having to know it.
+    """
+    return [a or b for a, b in _QUOTED.findall(text or "")]
 
 
 def bash_policy_block(bio_text):
@@ -112,7 +126,7 @@ def parse_bash_allowlist(bio_text):
     """
     out, seen = [], set()
     for stmt in _ALLOW_STMT.findall(bash_policy_block(bio_text)):
-        for name in _QUOTED.findall(stmt):
+        for name in _quoted_values(stmt):
             if name and name not in seen:
                 seen.add(name)
                 out.append(name)
@@ -128,4 +142,4 @@ def parse_bash_denylist(bio_text):
     towards refusing, and it also keeps the ratification fingerprint stable for any constitution
     that placed one elsewhere — scoping it could flip such a file RATIFIED -> TAMPERED (O-3).
     """
-    return _DENY_STMT.findall(strip_comments(bio_text))
+    return [a or b for a, b in _DENY_STMT.findall(strip_comments(bio_text))]

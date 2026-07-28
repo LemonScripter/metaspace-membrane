@@ -67,6 +67,7 @@ PROOFS = [
     ("Anchor carve-out: user data writable, control surface sealed (C-66/O-22)", "evidence/run_anchor_carveout_proof.py"),
     ("Heredoc bodies are data; a shell may still not execute unseen stdin (C-68/O-24)", "evidence/run_heredoc_proof.py"),
     ("A newline separates commands — later lines are checked (C-69/O-25)", "evidence/run_multiline_proof.py"),
+    ("Adversarial pass over the text-to-decision parsers (C-70/C-71/C-72)", "evidence/run_shellparse_adversarial_proof.py"),
 ]
 
 
