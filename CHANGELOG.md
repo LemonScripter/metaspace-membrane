@@ -6,6 +6,13 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-07-28
+
+**Security patch.** Five more fail-opens in the shell policy, found by attacking it deliberately
+rather than waiting for the next one to surface. The most reachable: a command piped into a shell
+with the pipe-with-stderr operator was never checked, and on Windows an upper-case invocation
+escaped the denylist entirely.
+
 ### Fixed
 An adversarial pass over the two files that turn text into a decision —
 `core/shell_policy.py` and `core/bio_policy.py`. Five defects had been found there in a single
