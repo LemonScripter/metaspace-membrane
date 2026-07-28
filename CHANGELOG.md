@@ -6,6 +6,16 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+### Known
+- **⚠ Upgrading to 0.3.5 with `pip install -U` does NOT close the PowerShell gap on an existing
+  installation.** The matcher that decides whether a tool call is shown to the membrane lives in
+  your `settings.json`, written at install time; upgrading the package replaces the code and
+  leaves the routing alone. Measured immediately after upgrading a real machine: the new
+  `install.py` would write a matcher naming `PowerShell`, the settings file still named the old
+  seven, and a live PowerShell call still produced no audit entry. **Re-run `metaspace install`
+  after upgrading**, or add `PowerShell` to the matcher by hand. This affects every future change
+  to what gets routed, not just this one. (O-36.)
+
 ## [0.3.5] — 2026-07-29
 
 **Security patch.** A `PowerShell` tool sat beside `Bash` with the same capability on the same
