@@ -86,7 +86,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-37 | Version parity across packaging surfaces | N/A | PROVEN |
 | C-38 | The decision core is agent-profiled (host differences are data) | N/A | PROVEN |
 | C-39 | Hard containment on a second, named AI agent (Cursor) | HARD | PROVEN |
-| C-40 | Any Linux process confined by its `.bio` | HARD | BLOCKED |
+| C-40 | Any Linux process confined by its `.bio` | HARD | WONTDO |
 | C-41 | MCP-mediated effects contained across MCP servers | — | BLOCKED |
 | C-42 | WordPress: compromised plugin cannot write core or exec | HARD | PLANNED |
 | C-43 | Cross-OS verification on macOS | N/A | BLOCKED |
@@ -121,6 +121,8 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-72 | A DENY that is written is a DENY that is enforced | N/A | PROVEN |
 | C-73 | Every shell tool on a host is decided by the same core | HARD | PROVEN |
 | C-74 | The agent cannot replace or remove the membrane's own code | HARD | BLOCKED |
+| C-75 | Any Linux process, any language, FILESYSTEM-write-confined by its `.bio` | HARD | PROVEN |
+| C-76 | The same confinement for NETWORK and SUBPROCESS | HARD | BLOCKED |
 
 ---
 
@@ -462,11 +464,21 @@ lacks a lockable local Anchor cannot reach HARD (O-5).
 **PROOF:** *(planned)*
 
 ### C-40 — Any Linux process, in any language, is confined to its `.bio`
-**TIER:** HARD · **STATUS:** BLOCKED · **BLOCKED-BY:** O-8
+**TIER:** HARD · **STATUS:** WONTDO · **SUPERSEDED-BY:** C-75, C-76
 **CONDITION:** Linux; syscall/LSM-level scope, coarser than the tool-gate tiers.
 **Note:** this claim is Anchor-independent — it does not require the target to cooperate, which
 is why it remains available even if C-39 proves unreachable for a given agent.
 **PROOF:** *(planned: extends `run_landlock_demo`)*
+
+**WONTDO 2026-09-12 (re-expressed, not withdrawn) — the row could never move, because it bundled two claims of very
+different difficulty.** The `.bio` declares three capability kinds, and they do not share a
+substrate. FILESYSTEM write has a Landlock expression and the enforcer for it already exists and
+is proven on a stock binary (C-04, C-14); what stands in the way there is a *dispatch* decision,
+not kernel work. NETWORK has no Landlock expression at all (O-38), so no amount of work on the
+dispatch reaches the HARD tier for it. Bundled, the weaker half held the stronger one BLOCKED
+indefinitely. Split into **C-75** (filesystem half, reachable now) and **C-76** (network/exec
+half, blocked by O-38). Nothing about the original claim is withdrawn — it is re-expressed at a
+granularity that can actually change STATUS.
 
 ### C-41 — Effects mediated through arbitrary MCP servers are contained
 **TIER:** — · **STATUS:** BLOCKED · **BLOCKED-BY:** O-3, O-4, O-7
@@ -871,6 +883,94 @@ a value the agent cannot write. Until then, the honest statement is that the mem
 configuration is protected and its code is not.
 
 
+### C-75 — Any Linux process, in any language, is FILESYSTEM-write-confined to its `.bio`
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **SUPERSEDES:** C-40 (filesystem half) · **RELATED:** C-04, C-14, O-30
+**No BLOCKED-BY, deliberately:** the dispatch change *is* this claim's work, not an impediment in front of it, so it belongs in the acceptance criteria below — the ledger's own BLOCKED-BY semantics (assertability, not scheduling). O-8 recorded it as an obstacle; that was the mis-filing this split corrects.
+**CONDITION:** Linux with Landlock ABI ≥ 2; write-confinement only — read and exec unrestricted,
+exactly as in C-04. The *interpreter* is launched as the confined program: `python app.py` is
+contained because `python` is a process, not because Python cooperates.
+
+**Why this is reachable now rather than blocked.** `products/app_membrane/sandbox_enforcer.py`
+already confines an arbitrary program — it lowers the `.bio`'s FILESYSTEM write scopes to
+`landlock_add_rule(PATH_BENEATH)`, sets `NO_NEW_PRIVS`, calls `landlock_restrict_self` and then
+`execvp`s anything — and it is fail-closed: without Landlock it refuses to launch rather than run
+a program unconfined. C-04 and C-14 prove that mechanism on a stock native binary. What is missing
+is not kernel work but **dispatch**: `cli.py:692` reads
+
+    is_py = args.target.endswith(".py") and not args.native
+
+so a `.py` target goes to the language-level backend **on Linux too**, where the hard path was
+available all along. The `--native` flag already reaches it.
+
+**What this closes.** Landlock is inherited across `fork`/`exec`, so a subprocess the program
+spawns is confined by the same ruleset. That closes the FILESYSTEM half of the O-30 measurement
+structurally — by moving the boundary below the language — instead of by adding more entry points
+to a patch list, which O-30 identified as the enumeration trap.
+
+**Acceptance.** A proof leg in which an out-of-scope write attempted through
+`pathlib.Path.write_text`, `io.open`, `os.open` + `os.write` and `os.rename` — the four that
+defeated the language backend under O-30 — each fail with `EACCES` from the kernel; plus a
+**positive control** (a granted write succeeds) and a subprocess leg (a child's out-of-scope write
+also fails). Without the positive control the measurement cannot tell containment from a program
+that never ran — mistake #5 and #7 of the measuring-instrument list.
+
+⚠️ **The interpreter's own writes count as writes.** `__pycache__` will be written on first import
+and lands outside a typical scope; either grant it, or run with `PYTHONDONTWRITEBYTECODE=1`.
+Otherwise the proof measures a false failure and the runner looks contained when it merely crashed.
+
+**PROOF:** `run_c75_interpreter_proof` · **VERIFIED:** Linux (2026-09-12)
+
+**MEASURED 2026-09-12 — live kernel, twice in a row with identical results.**
+**CONDITION:** Debian, Linux `6.1.0-52-amd64`, **Landlock ABI 2** (the ABI is named in the run's
+own stderr, so the enforcement mode is not assumed); disposable VM `dcc-proof2`
+(GCP asia-northeast1-b); `PYTHONDONTWRITEBYTECODE=1`. ABI 2 matters: `REFER` is in the handled
+mask from ABI 2, which is what makes the `os.rename` leg meaningful rather than vacuous.
+
+| route | LEG A — under the substrate | LEG B — under the language backend |
+|---|---|---|
+| granted write (positive control) | **WROTE** | WROTE |
+| `builtins.open` | `EACCES` (13) | `ConstitutionViolation` — caught |
+| `io.open` | `EACCES` (13) | **WROTE OUTSIDE** |
+| `pathlib.Path.write_text` | `EACCES` (13) | **WROTE OUTSIDE** |
+| `os.open` + `os.write` | `EACCES` (13) | **WROTE OUTSIDE** |
+| `os.rename` (out of the granted dir) | `EACCES` (13) | **WROTE OUTSIDE** |
+| subprocess child, out of scope | denied (`rc=1`) | `ConstitutionViolation` — caught |
+
+Verified from outside as well: **no file was created in the denied directory**.
+
+**What LEG B is for.** It is the differential control, and it is the reason LEG A counts as
+evidence: the same probe file, run under the language-level backend, wrote outside the
+constitution through four of the five routes — catching only the one route it monkeypatches.
+So the zeros in LEG A are containment, not a probe that failed to run. It also reproduces
+**O-30 independently**, on Linux, which the original measurement (2026-07-28) had not.
+
+**What this does NOT say.** Write-confinement only — read and exec remain unrestricted (as in
+C-04). NETWORK and SUBPROCESS are **not** confined by this substrate; for those kinds the
+enforced tier on a running program remains `COOPERATIVE` (C-13), and the honest boundary is
+C-76 / O-38. The `child_write` leg proves the child could not *write* outside the scope; it does
+not mean SUBPROCESS is mediated.
+
+**One route this does not yet reach:** `metaspace run` still dispatches a `.py` target to the
+language backend (`cli.py:692`). The claim is proven for the substrate path; making it the
+default for Python targets on Linux is the remaining product work, not a proof gap.
+
+### C-76 — The same confinement for NETWORK and SUBPROCESS
+**TIER:** HARD · **STATUS:** BLOCKED · **BLOCKED-BY:** O-38 · **SUPERSEDES:** C-40 (network/exec half)
+**CONDITION:** *(cannot be stated until a substrate is chosen — see O-38.)*
+
+**Why it is a separate row.** Only FILESYSTEM has a Landlock expression. NETWORK scopes in a `.bio`
+are **host-based** (`NETWORK out "docs.anthropic.com"`), and Landlock's network support restricts
+TCP `bind`/`connect` **by port number only**. `SUBPROCESS exec` is a second, independent case:
+Landlock ABI 1 does have an `EXECUTE` bit, but `sandbox_enforcer.py` deliberately leaves exec
+unrestricted so dynamically-linked programs can start at all. Keeping these in the same row as the
+filesystem half is what kept C-40 immobile.
+
+**Honest position in the meantime.** For NETWORK and SUBPROCESS the enforced tier on a running
+program is `COOPERATIVE` (C-13), with the limits stated on C-15 — not HARD. No stronger claim may
+be made for these kinds until this row moves.
+
+**PROOF:** *(planned)*
+
 ---
 
 # Obstacle register
@@ -888,7 +988,7 @@ configuration is protected and its code is not.
 | **O-5** | For a hosted / SaaS agent the configuration Anchor lives server-side, so no local deny-scope can exist. The HARD tier is therefore structurally unreachable for such agents — a boundary, not a defect. | inferred; needs confirmation per agent | OPEN | C-53 |
 | **O-6** | The hard substrate tier is Linux-only (Landlock/seccomp). Windows and macOS have no equivalent in the current design. | verified in code | ACCEPTED-LIMIT | — |
 | **O-7** | The ingress mechanism and Anchor location of every candidate target agent (Cursor, Cline, Windsurf, …) are **unverified** — no claim about them may be planned on, let alone published. | not yet verified | OPEN | C-53, C-41 |
-| **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. | verified in code | OPEN | C-40 |
+| **O-8** | `core/apprun.py:32` `run_python()` is an interpreter-level monkeypatch set. It is the part that does *not* generalise; the generalising part is `sandbox_enforcer.py` (Linux-only). "Partly done" overstates the substrate's readiness. **CLARIFIED 2026-09-12 — as written this names the weak component but not what actually blocks the claim.** That `run_python` is a monkeypatch set does not prevent a Linux process from being confined: the substrate for that exists, is fail-closed, and is proven on a stock binary (C-04, C-14). What blocks it is the **dispatch** — `cli.py:692` (`is_py = args.target.endswith(".py") and not args.native`) routes every `.py` target to the language backend on Linux as well, so the hard path is reachable only by passing `--native` explicitly. The obstacle is therefore a routing decision with a one-line diagnosis, not an unbuilt substrate. **RESOLVED 2026-09-12 by the C-40 split — and by the ledger's own BLOCKED-BY rule**, which reserves this register for what prevents a claim rather than for the work that constitutes it: the dispatch half became C-75's acceptance criteria, the substrate-coverage half became O-38, and the measured consequence of the monkeypatch weakness already lives on O-30. Nothing of the row's substance is dropped; it had no residue of its own left to block with. | verified in code | RESOLVED | — |
 | **O-9** | No macOS machine is available to the project. | stated | OPEN | C-43 |
 | **O-10** | The BSL Competing-Use scope and its interaction with the patent position await legal review. Non-blocking for the grant. | stated | OPEN | — |
 | **O-18** | **Gemini CLI can no longer authenticate on this account**, so its live run cannot be performed: `IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products.` The install side is done and verified (C-60), but no verdict can be measured, so no tier may be claimed. **This inverts the priority:** Gemini CLI is installable-but-unmeasurable, while Antigravity is the live successor product — measurable, but its config path is still unknown (O-16). Resolving O-16 is now the path forward, not a side quest. | **empirical run** | OPEN | C-57 |
@@ -918,6 +1018,7 @@ configuration is protected and its code is not.
 | **O-25** | **A newline did not separate commands — a fail-OPEN in every release up to 0.3.2.** `shlex` with `whitespace_split=True` treats a newline as ordinary whitespace and never emits it as a token, so the `"\n"` entry in `_SEP` was dead code and every line after the first merged into the first sub-command. Only the first line's program was checked against the allowlist, and the denylist, which matches a token prefix, never saw the later commands. Measured with `git` allowlisted and `rm -rf` denied: `git status` followed by a newline and `rm -rf /` was **ALLOWED**, and so was a `wget` on a second line. Found while proving C-68 — the heredoc fix exposed it, because stripping the body left a following command merged into the same sub-command. Multi-line commands are ordinary, so this was reachable in normal use, not only under an attack. **RESOLVED by C-69:** newlines outside quotes become explicit separators before tokenizing, with quoted newlines, line continuations and blank lines each handled and pinned by a proof leg. | **empirical run** + code | RESOLVED | — |
 | **O-22** | **The code-injected anchor denies protect a host's whole config tree, including user data that legitimately lives there.** `core/agent_anchors.py` denies `~/.claude/**` (and the equivalent for every other known host), and FILESYSTEM deny is an unconditional override of write (`core/guard.py:125`). That is correct for configuration — it is what makes C-33/C-59 hold — but the tree is not only configuration: Claude Code keeps **per-project memory** under `~/.claude/projects/<slug>/memory/`, which is user content, not an agent switch. Measured on the developer machine, 2026-07-28: with the anchors injected, a write to that memory directory is DENIED even though the constitution explicitly grants it, so enabling `enforce` silently ends cross-session memory. A constitution cannot except itself from a code-injected deny — by design, since that escape hatch is exactly what C-33 exists to remove — so this cannot be fixed in a `.bio`. The narrow fix is to inject file/subtree-precise denies (`settings*.json`, `metaspace/**`, `plugins/**`) instead of the whole anchor; the risk of narrowing is that C-59's guarantee was built on total coverage, so any exclusion list becomes a place to forget a file. **Not a fail-open** — it over-blocks, which is the safe direction — and it blocks no claim: C-59 asserts that every anchor is covered, which remains true. **RESOLVED by C-66:** the tree stays denied and a short code-defined carve-out (`DATA_CARVEOUTS` in `core/agent_anchors.py`) is exempted, so forgetting an entry over-blocks rather than opening a hole; the constitution still has to grant the path, and cannot declare exemptions of its own. | **empirical run** (guard, real constitution) | RESOLVED | — |
 | **O-21** | **Antigravity's hook execution is gated by a server-side feature flag, not by anything local.** `agy` loads `.agents/hooks.json` but its `customizations.Manager.isFeatureEnabled` asks an in-process Unleash client about `json-hooks-enabled`, which is globally enabled yet constrained to `ide=jetski`; `agy` reports `product=antigravity`, so hooks load and never fire. Established by measurement, then confirmed by inversion: redirecting that client to a local mock with the constraint stripped makes agy both load and execute the hooks, and the Warden then blocks live shell and out-of-scope writes. **Nothing local can lift this** — it is a vendor rollout decision, not a configuration. Split out of O-16, which is otherwise resolved: the bridge exists and is proven (C-64); what is missing is a stock host that calls it. Watch for the flag reaching `product=antigravity`, or for another ingress in a later release. | **empirical run** (mock inversion) | OPEN | C-65 |
+| **O-38** | **Landlock cannot express the `.bio`'s NETWORK scopes, so the HARD tier for NETWORK is unreachable with this substrate.** A constitution grants a *host* (`NETWORK out "docs.anthropic.com"`). Landlock's network support (ABI 4, kernel 6.7) governs TCP `bind`/`connect` **by port number**; no ABI offers a rule type taking an address or a name. There is therefore no lowering from a host-based scope to a Landlock ruleset — this is a property of the kernel interface, not a gap in the enforcer, and no amount of dispatch work reaches it. `SUBPROCESS exec` is a second, separable case: the `EXECUTE` bit exists from ABI 1, but `sandbox_enforcer.py` leaves exec unrestricted by design so dynamically-linked programs can start. The honest routes are **seccomp-bpf** (syscall level, where the address is in the argument) or an **eBPF-LSM** gate — a different substrate, not a wider Landlock ruleset. Found 2026-09-12 while auditing why C-40 never moved; it is the half of that claim O-8 never named. | verified against the Landlock uapi + the `sandbox_enforcer.py` MVP scope | OPEN | C-76 |
 
 ---
 
