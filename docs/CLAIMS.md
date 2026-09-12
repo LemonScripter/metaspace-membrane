@@ -453,7 +453,8 @@ verified on disk, twice, across a Cursor restart. Audit records `host_event=preT
 `dialect=hybrid`, `host_version=3.12.17`.
 **Four variables, all satisfied:** Ingress = `preToolUse`; Vocabulary = 21 steps enumerated;
 Egress = block observed, file absent; Anchor = `~/.claude` (already protected by C-33).
-**PROOF:** `run_cursor_compat_proof` (P-CURSOR, 24 checks) · **VERIFIED:** Win (2026-07-21); Linux pending
+**PROOF:** `run_cursor_compat_proof` (P-CURSOR, 24 checks) · **VERIFIED:** Win (2026-07-21, live agent + P-CURSOR); Linux (2026-09-12, P-CURSOR 24/24)
+⚠ **What the Linux run does and does not cover.** P-CURSOR drives a real captured Cursor payload (BOM intact) through the actual hook binary, so the Linux result is verdict parity and dialect handling *on Linux, on today's code*. The **live-agent leg stays Windows-only**: Cursor is not installed on the Linux machine, so nothing there shows Cursor itself honouring the verdict. Writing plain "Linux" would blur the two — and blurring them is exactly how "Linux pending" once got read as "measured on Linux".
 
 ### C-53 — Hard containment on an agent other than Claude Code or Cursor
 **TIER:** HARD · **STATUS:** BLOCKED · **BLOCKED-BY:** O-1, O-2, O-5, O-7
