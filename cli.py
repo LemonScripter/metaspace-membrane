@@ -667,6 +667,99 @@ def cmd_verify(args):
     return 0 if rep["verdict"] in ("CONSISTENT", "OK", "NO-EFFECTS") else 1
 
 
+def _run_hard(bio_path, root, target, prog):
+    """Run a Python target with BOTH membranes: the kernel substrate (Landlock) around the
+    interpreter, and the in-process guard inside it.
+
+    The two are not a strength ordering, which is why this composes rather than replaces:
+    Landlock confines FILESYSTEM writes through every syscall wrapper (C-75) and mediates
+    nothing else; the language guard mediates NETWORK and SUBPROCESS and produces the
+    decision log, and leaks filesystem writes that avoid `builtins.open` (O-30).
+
+    FAIL-CLOSED. `--hard` is a requirement, not a request: if the substrate is not there the
+    program does not run, and the caller is told what to do instead. The same rule the
+    SandboxEnforcer already follows for native binaries (C-04) — never run something
+    unconfined while calling it confined. Dropping to the language guard is available by
+    omitting the flag, which makes it a choice someone made rather than a downgrade they
+    absorbed without noticing.
+    """
+    import platform
+    if platform.system() != "Linux":
+        sys.stderr.write("[membrane] REFUSED: --hard needs Linux with Landlock; this is %s.\n"
+                         % platform.system())
+        sys.stderr.write("[membrane] The hard FILESYSTEM tier has no equivalent here (O-6).\n")
+        sys.stderr.write("[membrane] Run without --hard for the language guard (COOPERATIVE, C-13).\n")
+        return 3
+    sys.path.insert(0, os.path.join(HERE, "products", "app_membrane"))
+    try:
+        import sandbox_enforcer
+        abi = sandbox_enforcer.landlock_abi()
+    except Exception:
+        abi = 0
+    if abi < 1:
+        sys.stderr.write("[membrane] REFUSED: Landlock is not available on this kernel "
+                         "(needs >= 5.13 with the landlock LSM).\n")
+        sys.stderr.write("[membrane] Will not run the program unconfined while claiming to confine it.\n")
+        sys.stderr.write("[membrane] Run without --hard for the language guard (COOPERATIVE, C-13) —\n")
+        sys.stderr.write("[membrane] note that filesystem writes avoiding builtins.open leak there (O-30).\n")
+        return 3
+
+    import json
+    import subprocess
+    enforcer = os.path.join(HERE, "products", "app_membrane", "sandbox_enforcer.py")
+    env = dict(os.environ)
+    env["MS_REPO"] = HERE
+    env["MS_BIO"] = bio_path
+    env["MS_ROOT"] = root
+    env["MS_TARGET"] = target
+    # __pycache__ is a write like any other and lands outside a typical scope; without this
+    # the confined interpreter dies on import and every route looks denied for the wrong reason.
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+    driver = (
+        "import os,sys,json\n"
+        "sys.path.insert(0, os.environ['MS_REPO'])\n"
+        "from core import apprun\n"
+        "bio = open(os.environ['MS_BIO'], encoding='utf-8').read()\n"
+        "d,out,err,blocked = apprun.run_python(bio, os.environ['MS_ROOT'], os.environ['MS_TARGET'])\n"
+        "sys.stdout.write(out if (not out or out.endswith(chr(10))) else out + chr(10))\n"
+        "print('MS_COMPOSED=' + json.dumps({'decisions': d, 'err': err}))\n"
+    )
+    cmd = [sys.executable, enforcer, "--bio", bio_path, "--root", root, "--create-scopes",
+           "--", sys.executable, "-c", driver] + list(prog)
+    p = subprocess.run(cmd, env=env, capture_output=True, text=True)
+
+    payload, body = None, []
+    for line in (p.stdout or "").splitlines():
+        if line.startswith("MS_COMPOSED="):
+            try:
+                payload = json.loads(line[len("MS_COMPOSED="):])
+            except ValueError:
+                payload = None
+        else:
+            body.append(line)
+    if body:
+        sys.stdout.write("\n".join(body) + "\n")
+
+    decisions = (payload or {}).get("decisions") or []
+    err = (payload or {}).get("err")
+    denied = [d for d in decisions if d.get("decision") == "DENY"]
+    allowed = [d for d in decisions if d.get("decision") == "ALLOW"]
+    print("-" * 60)
+    print("  MetaSpace app membrane (composed) — %s" % os.path.basename(target))
+    print("  FILESYSTEM: HARD, kernel-enforced (Landlock ABI %d)   [C-75]" % abi)
+    print("  NETWORK / SUBPROCESS: COOPERATIVE, language-mediated  [C-13, O-31, O-32]")
+    print("  allowed effects: %d    blocked (deny-by-default): %d" % (len(allowed), len(denied)))
+    for d in denied[:8]:
+        print("     BLOCKED  %s/%s  %s" % (d.get("kind"), d.get("mode"), d.get("target")))
+    if err:
+        print("  program: %s" % err)
+    if payload is None:
+        print("  (no decision log: the confined process produced no result marker)")
+    print("-" * 60)
+    return p.returncode if payload is None else (1 if err else 0)
+
+
 def cmd_run(args):
     """App membrane: run a program confined to a .bio — it can only produce the effects its
     constitution grants (deny-by-default). Python target -> in-process membrane (any OS);
@@ -699,6 +792,10 @@ def cmd_run(args):
             return 2
         with open(bio_path, encoding="utf-8") as fh:
             bio_text = fh.read()
+        if getattr(args, "hard", False):
+            _track("run")
+            # fail-closed: --hard either gets the substrate or refuses to run (no fallback)
+            return _run_hard(bio_path, root, os.path.abspath(args.target), prog)
         from core import apprun
         _track("run")
         decisions, out, err, blocked = apprun.run_python(bio_text, root, os.path.abspath(args.target))
@@ -920,6 +1017,10 @@ def build_parser():
     rn.add_argument("--bio", default=None, help="constitution (default: the folder's configured one)")
     rn.add_argument("--root", default=None, help="value substituted for {{PROJECT_ROOT}} (default: cwd)")
     rn.add_argument("--native", action="store_true", help="treat the target as a native binary (Linux/Landlock)")
+    rn.add_argument("--hard", action="store_true",
+                    help="Linux only: also confine the interpreter with Landlock so FILESYSTEM\n"
+                         "writes are refused by the kernel; NETWORK/SUBPROCESS stay mediated.\n"
+                         "REFUSES to run if Landlock is unavailable (C-77)")
     rn.add_argument("target", help="a Python file (any OS) or a native program (--native, Linux)")
     rn.add_argument("rest", nargs=argparse.REMAINDER, help="-- [args passed to the program]")
     rn.set_defaults(fn=cmd_run)

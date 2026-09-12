@@ -126,8 +126,13 @@ def confine_writes(write_dirs):
     return abi
 
 
-def bio_write_dirs(bio_text, root):
-    """Extract existing directories from the FILESYSTEM write scopes of a .bio constitution."""
+def bio_write_dirs(bio_text, root, create=False):
+    """Extract the directories named by the FILESYSTEM write scopes of a .bio constitution.
+
+    With `create=True` a declared scope whose directory does not exist yet is created rather
+    than skipped. Skipping is a silent over-restriction: the constitution grants the program
+    an output directory, the ruleset never mentions it, and the program simply cannot write
+    where its own `.bio` says it may."""
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from core.guard import parse_capabilities
     dirs = []
@@ -140,6 +145,12 @@ def bio_write_dirs(bio_text, root):
                         s = s[:-len(suf)]
                         break
                 s = s.rstrip("/") or "/"
+                if create and not os.path.isdir(s):
+                    try:
+                        os.makedirs(s, exist_ok=True)
+                    except OSError as e:
+                        sys.stderr.write("[SANDBOX] could not create granted scope %s (%s); "
+                                         "it stays outside the ruleset.\n" % (s, e))
                 if os.path.isdir(s):
                     dirs.append(os.path.abspath(s))
     return sorted(set(dirs))
@@ -151,13 +162,15 @@ def main(argv=None):
     ap.add_argument("--bio", help="constitution; its FILESYSTEM write scopes become writable dirs")
     ap.add_argument("--root", default=os.getcwd(), help="value substituted for {{PROJECT_ROOT}}")
     ap.add_argument("--write", action="append", default=[], help="an extra writable dir (repeatable)")
+    ap.add_argument("--create-scopes", action="store_true",
+                    help="create a declared write scope whose directory does not exist yet, instead of silently dropping it")
     ap.add_argument("cmd", nargs=argparse.REMAINDER, help="-- <program> [args...]")
     args = ap.parse_args(argv)
 
     write_dirs = [os.path.abspath(d) for d in args.write if os.path.isdir(d)]
     if args.bio:
         with open(args.bio, encoding="utf-8") as fh:
-            write_dirs += bio_write_dirs(fh.read(), args.root)
+            write_dirs += bio_write_dirs(fh.read(), args.root, create=args.create_scopes)
     write_dirs = sorted(set(write_dirs))
 
     cmd = args.cmd

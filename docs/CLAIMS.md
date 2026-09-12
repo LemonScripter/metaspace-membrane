@@ -123,6 +123,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-74 | The agent cannot replace or remove the membrane's own code | HARD | BLOCKED |
 | C-75 | Any Linux process, any language, FILESYSTEM-write-confined by its `.bio` | HARD | PROVEN |
 | C-76 | The same confinement for NETWORK and SUBPROCESS | HARD | BLOCKED |
+| C-77 | `run --hard` composes both membranes, or refuses to run | HARD | PROVEN |
 
 ---
 
@@ -970,6 +971,79 @@ program is `COOPERATIVE` (C-13), with the limits stated on C-15 — not HARD. No
 be made for these kinds until this row moves.
 
 **PROOF:** *(planned)*
+
+### C-77 — `metaspace run --hard` composes both membranes, and refuses rather than degrading
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-75 · **RELATED:** C-13, C-04, O-30, O-37
+**CONDITION:** Linux with Landlock ABI ≥ 2 for the composed leg; the refusal leg holds everywhere.
+
+**Why compose rather than switch the dispatch.** The obvious reading of C-75 — "the substrate
+won, so route Python targets to it" — is wrong, and stating why is the point of this row. The two
+backends are not a strength ordering:
+
+| | language guard | Landlock |
+|---|---|---|
+| FILESYSTEM write | leaks (O-30) | **HARD** (C-75) |
+| NETWORK / SUBPROCESS | COOPERATIVE (C-13) | **nothing at all** |
+| decision log | produced | none |
+
+Replacing one with the other would trade a leak for a blind spot and would silently retract
+C-13. `--hard` therefore runs the interpreter *under* the enforcer and the guard *inside* it, so
+one run has a kernel-enforced filesystem boundary and a mediated, logged network/subprocess
+surface. This is the composition ARCHITECTURE.md §3 describes, and it is a partial answer to the
+open question recorded as O-37.
+
+**Opt-in, deliberately.** The default `metaspace run app.py` is unchanged. A shipped tool does
+not change what it enforces under people's feet, and O-36 already showed that an upgrade does not
+reach every installation anyway.
+
+**Fail-closed, deliberately.** `--hard` is a requirement, not a request: without the substrate the
+program does not run (exit 3), and the refusal names the alternative. A flag that promises a hard
+tier and quietly delivers a cooperative one is worse than no flag — a CI step would pass either
+way. Dropping to the guard stays available by omitting the flag, which makes it a choice someone
+made rather than a downgrade they absorbed.
+
+**Declared scopes are created, not dropped.** `bio_write_dirs` used to skip a write scope whose
+directory did not exist yet, so a constitution granting `out/**` produced a ruleset that never
+mentioned it and a program that could not write where its own `.bio` allowed. With
+`--create-scopes` the enforcer creates them before confining. Silent over-restriction is still a
+measurement error: it makes containment and breakage look the same.
+
+**Acceptance.** One run on Linux in which: the granted write succeeds **in a scope directory that
+did not exist beforehand**; an out-of-scope `pathlib` write is refused with `EACCES`; `socket()`
+is refused by the guard and appears in the decision log; and the denied file is verified absent
+from outside. Plus the refusal leg on a machine without the substrate: exit 3, no program output,
+nothing created.
+
+**PROOF:** `run_c77_composed_proof` · **VERIFIED:** Linux + Windows (2026-09-12)
+
+**MEASURED 2026-09-12 — both legs.**
+**CONDITION (composed leg):** Debian, Linux `6.1.0-52-amd64`, Landlock ABI 2, disposable VM
+`dcc-proof2` (GCP asia-northeast1-b). **CONDITION (refusal leg):** any host without the
+substrate; measured on Windows 11.
+
+| | composed leg (Linux) | refusal leg (Windows) |
+|---|---|---|
+| mode reached | `COMPOSED` | `REFUSED`, exit 3 |
+| granted write | `WROTE` — in a scope dir that did **not** exist beforehand | program never ran |
+| out-of-scope `pathlib` write | `DENIED:EACCES:13` — **the kernel** | nothing created |
+| `socket()` | `DENIED:ConstitutionViolation` — **the guard**, same run | — |
+| decision log | survived the composition (`BLOCKED NETWORK/out`) | — |
+| denied file, checked from outside | absent | absent |
+
+**What the composed leg settles.** Both boundaries hold in a single run: the write that walks
+past the language guard (O-30) is refused by the kernel, while the network effect is still
+mediated *and logged* by the guard. That is the property a dispatch switch could not have —
+it would have traded the filesystem leak for a network blind spot.
+
+**What the refusal leg settles.** `--hard` is not a hint. Without the substrate the program did
+not run at all and produced nothing: the flag cannot silently resolve to a weaker tier, so a CI
+step that passes it either gets the hard boundary or fails.
+
+**What this does NOT say.** NETWORK and SUBPROCESS remain `COOPERATIVE` inside the composition —
+Landlock contributes nothing to them (C-76, O-38), and their known gaps stand (O-31 name
+resolution, O-32 `os.spawn*`/`os.exec*`). The composition raises FILESYSTEM to HARD and leaves
+the other kinds exactly where C-13 left them. It is also **opt-in**: the default `metaspace run`
+is unchanged, so nothing here describes what an existing installation does today.
 
 ---
 

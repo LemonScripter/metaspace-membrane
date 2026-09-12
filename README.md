@@ -141,6 +141,7 @@ python products/app_membrane/bypass_proof.py          # ungranted gate -> unknow
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
 python evidence/run_landlock_demo.py                  # real native program OS-confined by .bio (Linux/Landlock, M3)
 python evidence/run_c75_interpreter_proof.py          # a Python program kernel-confined where the language guard leaks (C-75)
+python evidence/run_c77_composed_proof.py             # run --hard: both membranes in one run, or a refusal (C-77)
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_ratify_demo.py              # ratification is content-bound (tamper detected)
 python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
@@ -341,11 +342,14 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
   confined program rather than asked to cooperate: measured on a live kernel, out-of-scope writes
   through `io.open`, `pathlib.Path.write_text`, `os.open` and `os.rename` — the routes that defeat
   the language guard — are each refused with `EACCES`, and a subprocess inherits the confinement.
-  **But note what ships:** `metaspace run` on a `.py` target still dispatches to the language
-  backend, so that hard tier is reached today only by launching the interpreter under the enforcer
-  yourself. The language backend remains the default because it is the only one that mediates
-  NETWORK and SUBPROCESS at all; Landlock covers filesystem writes and nothing
-  else.<!-- claim: C-75 --><!-- claim: C-76 --><!-- claim: C-13 -->
+  `metaspace run --hard app.py` composes the two: Landlock around the interpreter, the language
+  guard inside it, so one run has a kernel-enforced filesystem boundary **and** a mediated, logged
+  NETWORK/SUBPROCESS surface. It is **opt-in** — the plain `metaspace run` is unchanged — and it is
+  **fail-closed**: without Landlock it refuses to run (exit 3) rather than quietly giving you the
+  weaker tier, because a flag that promises a hard boundary and silently delivers a soft one would
+  let a CI step pass either way. Inside the composition NETWORK and SUBPROCESS are still
+  COOPERATIVE; Landlock contributes nothing to
+  them.<!-- claim: C-75 --><!-- claim: C-76 --><!-- claim: C-77 --><!-- claim: C-13 -->
 - The code→constitution synthesis is a static heuristic; a **dry-run learning mode**
   (`core/dryrun.py`) observes concrete runtime effects and augments the constitution *before*
   ratification, so it does not false-positive-block legitimate dynamic behaviour.

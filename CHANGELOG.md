@@ -21,6 +21,18 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   exist on any ABI, so the HARD tier for NETWORK needs a different substrate (seccomp-bpf or
   eBPF-LSM), not a wider ruleset.
 
+- **C-77 — `metaspace run --hard` composes both membranes, or refuses to run.** Landlock around
+  the interpreter, the language guard inside it. Measured on both sides: on Linux 6.1.0-52-amd64
+  (Landlock ABI 2) one run produced `DENIED:EACCES:13` from the *kernel* for an out-of-scope
+  `pathlib` write and `DENIED:ConstitutionViolation` from the *guard* for `socket()`, with the
+  decision log intact and the granted write landing in a scope directory that did not exist
+  beforehand; on a host without the substrate it refused with exit 3 and the program never ran.
+  Opt-in: the plain `metaspace run` is unchanged. New runner:
+  `evidence/run_c77_composed_proof.py`.
+- **`sandbox_enforcer` can create declared write scopes** (`--create-scopes`). A scope whose
+  directory did not exist yet was silently dropped from the ruleset, so a program could not write
+  where its own `.bio` allowed — over-restriction that looks exactly like containment.
+
 ### Changed
 - **C-40 is WONTDO — re-expressed, not withdrawn.** It bundled two claims of very different
   difficulty ("any Linux process, in any language, confined to its `.bio`"), and the kinds do not
