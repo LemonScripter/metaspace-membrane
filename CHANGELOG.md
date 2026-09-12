@@ -45,6 +45,24 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   `evidence/run_c78_wordpress_core_proof.py`. ⚠ `php-fpm` was **not** measured — the CLI
   interpreter was.
 
+- **C-79 — a confined process executes only the programs its `.bio` grants.** `--confine-exec`
+  adds Landlock's EXECUTE to the handled set. Three things had to change together or it would
+  have been theatre: each rule now carries its **own** access set (otherwise enabling EXECUTE
+  would have granted execution inside the *writable* directory — for WordPress that is
+  `wp-content/uploads`, exactly where an attacker uploads); the program is granted as a **file**,
+  not as its directory (on a merged-`/usr` Debian `php` and `sh` share `/usr/bin`); and the
+  loader directories keep EXECUTE, or nothing dynamically linked starts — which is why the MVP
+  had left EXECUTE unhandled rather than half-handled. Measured in four legs: free; confined with
+  no grant (nothing executes, not even the shell, while php still starts); confined granting
+  `/bin/sh` (the shell runs — a builtin proves it — but `/bin/echo` stays refused, so **a granted
+  shell cannot launder an ungranted program**); and confined granting both (the chain returns).
+  No new `.bio` vocabulary: `SUBPROCESS exec` already existed, so the provenance fingerprint is
+  unchanged. Opt-in; without the flag nothing changes. New runner:
+  `evidence/run_c79_exec_proof.py`.
+- **With C-78 and C-79 the sentence C-42 tried to make is true** — a compromised WordPress plugin
+  can neither write core nor exec — but as two rows with two measurements, which is the only
+  reason either could move.
+
 ### Changed
 - **C-42 is WONTDO — split by measurement.** It asserted that a compromised plugin can neither
   write core **nor** exec. The writes are refused; **all three exec routes (`shell_exec`,

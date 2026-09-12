@@ -211,7 +211,7 @@ def main_checks(bare, conf, cb, cc, p2):
     ck("pwned" not in cc, "the confined tree's core is intact, checked from outside")
     ck(all(str(conf.get(k, "")).startswith("RAN") for k in
            ("exec_shell", "exec_func", "exec_procopen")),
-       "SCOPE-LIMIT pinned: exec is NOT confined (shell_exec / exec / proc_open all run) - C-79")
+       "SCOPE-LIMIT pinned: WITHOUT --confine-exec nothing stops exec (shell_exec / exec / proc_open all run). The mechanism exists since C-79; this pins the DEFAULT.")
     return fails
 
 

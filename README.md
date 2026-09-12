@@ -143,6 +143,7 @@ python evidence/run_landlock_demo.py                  # real native program OS-c
 python evidence/run_c75_interpreter_proof.py          # a Python program kernel-confined where the language guard leaks (C-75)
 python evidence/run_c77_composed_proof.py             # run --hard: both membranes in one run, or a refusal (C-77)
 python evidence/run_c78_wordpress_core_proof.py        # a compromised WordPress plugin cannot write core (C-78)
+python evidence/run_c79_exec_proof.py                  # a confined process execs only what its .bio grants (C-79)
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_ratify_demo.py              # ratification is content-bound (tamper detected)
 python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
@@ -351,6 +352,14 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
   let a CI step pass either way. Inside the composition NETWORK and SUBPROCESS are still
   COOPERATIVE; Landlock contributes nothing to
   them.<!-- claim: C-75 --><!-- claim: C-76 --><!-- claim: C-77 --><!-- claim: C-13 -->
+- With `--confine-exec` the substrate also confines **execution**: only the program itself, the
+  runtime libraries and the constitution's `SUBPROCESS exec` grants may run. Measured on a
+  compromised-plugin PoC: with nothing granted, `shell_exec`, `exec` and `proc_open` all fail
+  while the interpreter still starts; granting `/bin/sh` lets the shell run but **not** the
+  `/bin/echo` it then tries to launch, so a granted shell cannot launder an ungranted program.
+  The program is granted as a *file*, not as its directory — on a merged-`/usr` system granting
+  the directory would grant the shell. Opt-in, and it never widens the write
+  boundary.<!-- claim: C-79 --><!-- claim: C-78 -->
 - The code→constitution synthesis is a static heuristic; a **dry-run learning mode**
   (`core/dryrun.py`) observes concrete runtime effects and augments the constitution *before*
   ratification, so it does not false-positive-block legitimate dynamic behaviour.

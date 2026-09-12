@@ -90,7 +90,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-41 | MCP-mediated effects contained across MCP servers | — | BLOCKED |
 | C-42 | WordPress: compromised plugin cannot write core or exec | HARD | WONTDO |
 | C-78 | WordPress: a compromised plugin cannot write core | HARD | PROVEN |
-| C-79 | WordPress: a compromised plugin cannot exec | HARD | PLANNED |
+| C-79 | A confined process executes only what its `.bio` grants | HARD | PROVEN |
 | C-43 | Cross-OS verification on macOS | N/A | BLOCKED |
 | C-44 | Empirical four-variable survey of target agents | N/A | IN-PROGRESS |
 | C-45 | Roadmap and claim integrity is machine-checked | N/A | PROVEN |
@@ -538,34 +538,58 @@ a real application shape, and it needed no new code.
 
 **PROOF:** `run_c78_wordpress_core_proof` · **VERIFIED:** Linux (2026-09-12)
 
-### C-79 — A compromised WordPress plugin cannot exec
-**TIER:** HARD · **STATUS:** PLANNED · **DEPENDS:** C-75 · **SUPERSEDES:** C-42 (exec half)
-**CONDITION:** *(to be stated when the mechanism exists.)*
+### C-79 — A confined process executes only the programs its `.bio` grants
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-75 · **SUPERSEDES:** C-42 (exec half)
+**CONDITION:** Linux with Landlock ABI ≥ 1 (EXECUTE exists from ABI 1); opt-in via
+`--confine-exec`; the interpreter's own binary and the loader/library directories are granted
+automatically, or nothing dynamically linked could start. Measured on Debian 6.1.0-52-amd64,
+PHP 8.2.33, Landlock ABI 2, dcc-proof2, 2026-09-12.
 
-**Measured today as FALSE, which is why it is its own row.** `shell_exec`, `exec` and
-`proc_open` all ran under the substrate exactly as they did free. `sandbox_enforcer` deliberately
-leaves Landlock's `EXECUTE` access unhandled, because handling it without granting the
-interpreter's own binary and its libraries would stop any dynamically-linked program from
-starting at all.
+**MEASURED — four legs, 9 checks.**
 
-**No BLOCKED-BY, deliberately.** It was tempting to open an obstacle for this, but that would
-repeat the O-8 mistake: the register is for what *prevents* a claim, not for the work that *is*
-it. Handling `EXECUTE` is buildable, and the `.bio` already has the vocabulary — `SUBPROCESS exec`
-is an existing capability kind, so no new kind is needed and O-3's provenance problem does not
-arise.
+| | A free | B no grant | C + `/bin/sh` | D + `sh` and `echo` |
+|---|---|---|---|---|
+| php started | yes | **yes** | yes | yes |
+| core write | DID | refused | refused | refused |
+| granted uploads write | DID | **DID** | DID | DID |
+| shell **builtin** | RAN | **BLOCKED** | **RAN** | RAN |
+| `shell_exec /bin/echo` | RAN | BLOCKED | **BLOCKED** | **RAN** |
+| `exec()` · `proc_open()` | RAN | BLOCKED | BLOCKED | RAN |
 
-**Acceptance.** With `EXECUTE` handled: the confined interpreter still starts (its own binary and
-the loader/libraries granted), a granted program can be exec'd, and an **ungranted** one is
-refused by the kernel — measured on all three PHP routes, with the free-run control showing each
-would otherwise succeed. The allowlist is over *programs*, not over syscall spellings, so it is a
-capability list rather than the enumeration trap of O-30.
+**Leg C is the one that matters, and the builtin is why it can be read at all.** The first
+version of this proof could not distinguish *"the shell never started"* from *"the shell started
+but the program it then ran was refused"* — both are empty output, the same trap that made an
+earlier measurement report exec as blocked when a redirect had merely silenced it. A shell
+builtin needs no second `exec`, so it separates the two. With `/bin/sh` granted the builtin runs,
+which proves B is an **allowlist** and not a failure to start; and `/bin/echo` stays refused,
+which proves **a granted shell cannot launder an ungranted program**. Without that property
+"grant the shell" would quietly mean "grant everything".
 
-**Until then, stated plainly:** a WordPress install confined this way is protected against
-persistence and core tampering, **not** against command execution. The proof for C-78 pins this
-mechanically — it asserts exec still runs, so the day this row moves, that proof goes red and
-both must be updated together.
+**Three mechanism decisions, each forced by a way it would otherwise be theatre.**
+1. **Per-rule access sets.** Every rule used to receive the whole handled mask. Turning EXECUTE
+   on would then have granted execution inside the *writable* directory — for WordPress that is
+   `wp-content/uploads`, exactly where an attacker uploads.
+2. **The program is granted as a FILE, not as its directory.** On a merged-`/usr` Debian `php`
+   and `sh` are both under `/usr/bin`; granting the directory grants the shell.
+3. **The loader directories keep EXECUTE**, or nothing dynamically linked starts — which is why
+   the MVP left EXECUTE unhandled rather than half-handled.
 
-**PROOF:** *(planned)*
+**No new `.bio` vocabulary.** `SUBPROCESS exec` is an existing capability kind, so the provenance
+fingerprint is unchanged and O-3 does not arise. The allowlist is over *programs*, not over
+syscall spellings: a capability list, not the enumeration trap of O-30.
+
+**Opt-in.** Without `--confine-exec` the behaviour is exactly as before. Nothing here describes
+what an existing installation does today.
+
+**What this does NOT say.** It confines `execve` and executable mapping; it does not confine what
+an already-granted program then does, nor NETWORK (C-76, O-38). A granted interpreter is still an
+interpreter — C-63 applies unchanged.
+
+**With C-78, the sentence C-42 tried to make is now true** — a compromised WordPress plugin can
+neither write core nor exec — but as two rows, each with its own measurement, which is the only
+reason either could move.
+
+**PROOF:** `run_c79_exec_proof` · **VERIFIED:** Linux (2026-09-12)
 
 ### C-43 — Cross-OS verification on macOS
 **TIER:** N/A · **STATUS:** BLOCKED · **BLOCKED-BY:** O-9

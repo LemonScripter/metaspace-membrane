@@ -26,6 +26,7 @@ CLI:
 
 import os
 import sys
+import shutil
 import ctypes
 import struct
 import platform
@@ -75,18 +76,66 @@ def _write_access_mask(abi):
     return bits
 
 
-def confine_writes(write_dirs):
+# Directories the dynamic loader needs to map executable pages from. Without EXECUTE on
+# these, a dynamically-linked program cannot start at all -- which is exactly why the MVP
+# left EXECUTE unhandled rather than half-handled.
+_RUNTIME_EXEC_DIRS = ("/lib", "/lib64", "/usr/lib", "/usr/lib64", "/usr/libexec")
+
+
+def runtime_exec_paths(program):
+    """The minimum set that must stay executable for `program` to run at all: the program
+    file itself, plus the loader/library directories.
+
+    The program is granted as a FILE, not as its directory. That distinction is the whole
+    mechanism here: on a merged-/usr Debian both `php` and `sh` live under /usr/bin, so
+    granting the directory would grant the shell too and the confinement would be theatre."""
+    paths = []
+    p = shutil.which(program) or program
+    if os.path.exists(p):
+        paths.append(os.path.realpath(p))
+    for d in _RUNTIME_EXEC_DIRS:
+        if os.path.isdir(d):
+            paths.append(d)
+    return sorted(set(paths))
+
+
+def bio_exec_paths(bio_text, root):
+    """Programs the constitution explicitly grants, from `SUBPROCESS exec "..."`.
+
+    No new .bio vocabulary is introduced: SUBPROCESS/exec is an existing capability kind, so
+    the provenance fingerprint is unchanged and O-3 does not arise."""
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from core.guard import parse_capabilities
+    out = []
+    for kind, mode, scopes in parse_capabilities(bio_text):
+        if kind == "SUBPROCESS" and mode == "exec":
+            for s in scopes:
+                s = s.replace("{{PROJECT_ROOT}}", root)
+                p = shutil.which(s) or s
+                if os.path.exists(p):
+                    out.append(os.path.realpath(p))
+    return sorted(set(out))
+
+
+def confine_writes(write_dirs, exec_paths=None):
     """Apply a Landlock ruleset to the CURRENT process so that only `write_dirs` (and paths
     beneath them) are writable; all other filesystem-modifying operations are denied by the
     kernel. Returns the ABI version used. Raises OSError if Landlock is unavailable / a syscall
-    fails."""
+    fails.
+
+    `exec_paths` is opt-in (None = the historical behaviour, EXECUTE unhandled and therefore
+    unrestricted). When given, EXECUTE joins the handled set, so execution is denied everywhere
+    except beneath those paths -- and each rule now carries its OWN access set rather than the
+    whole handled mask, or granting a writable directory would silently grant execution in it."""
     abi = landlock_abi()
     if abi < 1:
         raise OSError("Landlock unavailable (need Linux kernel >= 5.13 with the landlock LSM)")
     arch = platform.machine()
     nr_create, nr_add, nr_restrict = _NR[arch]
     libc = _libc()
-    handled = _write_access_mask(abi)
+    write_bits = _write_access_mask(abi)
+    exec_bits = _FS["EXECUTE"] if exec_paths is not None else 0
+    handled = write_bits | exec_bits
 
     # landlock_ruleset_attr { __u64 handled_access_fs; }  (size 8 governs FS only)
     attr = struct.pack("<Q", handled)
@@ -97,21 +146,26 @@ def confine_writes(write_dirs):
         e = ctypes.get_errno()
         raise OSError(e, "landlock_create_ruleset: " + os.strerror(e))
     rs = int(rs)
+    def _add(path, bits):
+        fd = os.open(path, os.O_PATH | os.O_CLOEXEC)
+        try:
+            # landlock_path_beneath_attr { __u64 allowed_access; __s32 parent_fd; } packed=12
+            pb = struct.pack("<Qi", bits, fd)
+            pbuf = ctypes.create_string_buffer(pb, len(pb))
+            r = libc.syscall(ctypes.c_long(nr_add), ctypes.c_int(rs),
+                             ctypes.c_uint(_LANDLOCK_RULE_PATH_BENEATH),
+                             ctypes.c_void_p(ctypes.addressof(pbuf)), ctypes.c_uint(0))
+            if r < 0:
+                e = ctypes.get_errno()
+                raise OSError(e, "landlock_add_rule(%s): %s" % (path, os.strerror(e)))
+        finally:
+            os.close(fd)
+
     try:
         for d in write_dirs:
-            fd = os.open(d, os.O_PATH | os.O_CLOEXEC)
-            try:
-                # landlock_path_beneath_attr { __u64 allowed_access; __s32 parent_fd; } packed=12
-                pb = struct.pack("<Qi", handled, fd)
-                pbuf = ctypes.create_string_buffer(pb, len(pb))
-                r = libc.syscall(ctypes.c_long(nr_add), ctypes.c_int(rs),
-                                 ctypes.c_uint(_LANDLOCK_RULE_PATH_BENEATH),
-                                 ctypes.c_void_p(ctypes.addressof(pbuf)), ctypes.c_uint(0))
-                if r < 0:
-                    e = ctypes.get_errno()
-                    raise OSError(e, "landlock_add_rule(%s): %s" % (d, os.strerror(e)))
-            finally:
-                os.close(fd)
+            _add(d, write_bits)
+        for p in (exec_paths or []):
+            _add(p, exec_bits)
         # PR_SET_NO_NEW_PRIVS is required before restrict_self
         if libc.prctl(ctypes.c_int(_PR_SET_NO_NEW_PRIVS), ctypes.c_ulong(1),
                       ctypes.c_ulong(0), ctypes.c_ulong(0), ctypes.c_ulong(0)) != 0:
@@ -164,6 +218,9 @@ def main(argv=None):
     ap.add_argument("--write", action="append", default=[], help="an extra writable dir (repeatable)")
     ap.add_argument("--create-scopes", action="store_true",
                     help="create a declared write scope whose directory does not exist yet, instead of silently dropping it")
+    ap.add_argument("--confine-exec", action="store_true",
+                    help="also confine EXECUTE: only the program itself, the runtime\n"
+                         "libraries and the .bio's SUBPROCESS exec grants may be executed")
     ap.add_argument("cmd", nargs=argparse.REMAINDER, help="-- <program> [args...]")
     args = ap.parse_args(argv)
 
@@ -180,16 +237,30 @@ def main(argv=None):
         sys.stderr.write("no program given (use: ... -- <program> [args])\n")
         return 2
 
+    exec_paths = None
+    if args.confine_exec:
+        exec_paths = runtime_exec_paths(cmd[0])
+        if args.bio:
+            with open(args.bio, encoding="utf-8") as fh:
+                exec_paths += bio_exec_paths(fh.read(), args.root)
+        exec_paths = sorted(set(exec_paths))
+        if not any(os.path.isfile(p) for p in exec_paths):
+            sys.stderr.write("[SANDBOX] fail-closed: could not locate %r to grant it EXECUTE "
+                             "-> refusing (the program could not start anyway).\n" % cmd[0])
+            return 3
+
     if landlock_abi() < 1:
         sys.stderr.write("[SANDBOX] fail-closed: Landlock unavailable -> refusing to launch "
                          "(will not run a program unconfined).\n")
         return 3
     try:
-        abi = confine_writes(write_dirs)
+        abi = confine_writes(write_dirs, exec_paths)
     except OSError as e:
         sys.stderr.write("[SANDBOX] fail-closed: could not apply Landlock (%s) -> refusing.\n" % e)
         return 3
     sys.stderr.write("[SANDBOX] Landlock ABI v%d: writes confined to %s\n" % (abi, write_dirs))
+    if exec_paths is not None:
+        sys.stderr.write("[SANDBOX] EXECUTE confined to %s\n" % exec_paths)
     try:
         os.execvp(cmd[0], cmd)
     except OSError as e:
