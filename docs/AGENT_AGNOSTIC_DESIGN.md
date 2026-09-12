@@ -167,7 +167,7 @@ tracks *claims* instead, because a claim carries its own falsifiability while a 
 |---|---|
 | G1 — `AgentAdapter` contract | **C-38** — the decision core is agent-profiled (Anchor is data) |
 | G2 — MCP proxy | **C-41** — effects through arbitrary MCP servers are contained |
-| G3 — universal substrate | **C-40** — any Linux process is confined to its `.bio` |
+| G3 — universal substrate | **C-75** — any Linux process is FILESYSTEM-write-confined to its `.bio` (PROVEN, live kernel) · **C-76** — the same for NETWORK/SUBPROCESS (BLOCKED by O-38). C-40 asserted both at once and could not move; it is WONTDO, re-expressed. |
 | G4 — WordPress PoC | **C-42** — a compromised plugin cannot write core or exec |
 | — (newly surfaced) | **C-39** — hard containment on a second, named agent |
 | — (newly surfaced) | **C-44** — empirical four-variable survey of target agents |

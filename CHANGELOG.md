@@ -6,6 +6,31 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
 
 ## [Unreleased]
 
+### Added
+- **C-75 — a Python program is filesystem-write-confined by the kernel, through the routes that
+  defeat the language guard.** Measured on Linux 6.1.0-52-amd64, Landlock ABI 2, twice with
+  identical results: `builtins.open`, `io.open`, `pathlib.Path.write_text`, `os.open` + `os.write`
+  and `os.rename` each refused with `EACCES`; the granted write succeeded; a subprocess child's
+  out-of-scope write was refused too, Landlock being inherited across `fork`/`exec`. The proof
+  carries a differential control — the same probe under the language backend wrote outside the
+  constitution through four of the five routes — so the refusals are containment rather than a
+  probe that never ran, and **O-30 is reproduced independently on Linux**. New runner:
+  `evidence/run_c75_interpreter_proof.py`.
+- **O-38 — Landlock cannot express the `.bio`'s NETWORK scopes.** A constitution grants a *host*;
+  Landlock's network support (ABI 4) governs TCP `bind`/`connect` by *port*. The lowering does not
+  exist on any ABI, so the HARD tier for NETWORK needs a different substrate (seccomp-bpf or
+  eBPF-LSM), not a wider ruleset.
+
+### Changed
+- **C-40 is WONTDO — re-expressed, not withdrawn.** It bundled two claims of very different
+  difficulty ("any Linux process, in any language, confined to its `.bio`"), and the kinds do not
+  share a substrate, so the weaker half held the stronger one BLOCKED indefinitely. Split into
+  **C-75** (filesystem, proven) and **C-76** (network/exec, blocked by O-38).
+- **O-8 is RESOLVED.** It named the weak component rather than the impediment: that `run_python`
+  is a monkeypatch set does not prevent a process from being confined. What stood in the way was
+  the dispatch (`cli.py:692`), and by this ledger's own BLOCKED-BY rule the work that *is* a claim
+  belongs in its acceptance criteria, not in the obstacle register.
+
 ### Known
 - **⚠ Upgrading to 0.3.5 with `pip install -U` does NOT close the PowerShell gap on an existing
   installation.** The matcher that decides whether a tool call is shown to the membrane lives in

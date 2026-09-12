@@ -140,6 +140,7 @@ python products/app_membrane/run_wasm_demo.py         # every capability kind me
 python products/app_membrane/bypass_proof.py          # ungranted gate -> unknown import (blocked)
 python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contained by WASI capabilities
 python evidence/run_landlock_demo.py                  # real native program OS-confined by .bio (Linux/Landlock, M3)
+python evidence/run_c75_interpreter_proof.py          # a Python program kernel-confined where the language guard leaks (C-75)
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_ratify_demo.py              # ratification is content-bound (tamper detected)
 python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
@@ -336,6 +337,15 @@ technical whitepaper [`docs/MetaSpace_Membrane_Whitepaper_EN.pdf`](docs/MetaSpac
   bypassable and is not shipped as a product. The Landlock MVP confines *writes* (read/execute
   unrestricted so any binary runs); it is Linux-only and fail-closed if
   unavailable.<!-- claim: C-01 --><!-- claim: C-04 --><!-- claim: C-15 -->
+- The same substrate confines a **Python** program, because the interpreter is launched as the
+  confined program rather than asked to cooperate: measured on a live kernel, out-of-scope writes
+  through `io.open`, `pathlib.Path.write_text`, `os.open` and `os.rename` — the routes that defeat
+  the language guard — are each refused with `EACCES`, and a subprocess inherits the confinement.
+  **But note what ships:** `metaspace run` on a `.py` target still dispatches to the language
+  backend, so that hard tier is reached today only by launching the interpreter under the enforcer
+  yourself. The language backend remains the default because it is the only one that mediates
+  NETWORK and SUBPROCESS at all; Landlock covers filesystem writes and nothing
+  else.<!-- claim: C-75 --><!-- claim: C-76 --><!-- claim: C-13 -->
 - The code→constitution synthesis is a static heuristic; a **dry-run learning mode**
   (`core/dryrun.py`) observes concrete runtime effects and augments the constitution *before*
   ratification, so it does not false-positive-block legitimate dynamic behaviour.
