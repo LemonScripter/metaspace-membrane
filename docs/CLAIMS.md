@@ -113,7 +113,7 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-64 | Antigravity's tool-call contract reaches the unmodified Warden, fail-closed | N/A | PROVEN |
 | C-65 | Hard containment on Antigravity, measured on a stock install | HARD | BLOCKED |
 | C-66 | The anchor deny guards the control surface, not the user's data | HARD | PROVEN |
-| C-67 | The user can ask what mode is actually in force, and where it came from | N/A | PLANNED |
+| C-67 | The user can ask what mode is actually in force, and where it came from | N/A | PROVEN |
 | C-68 | A heredoc body is data, not a command list | N/A | PROVEN |
 | C-69 | A newline separates commands; every line is checked | HARD | PROVEN |
 | C-70 | Every shell metacharacter that separates commands is treated as one | HARD | PROVEN |
@@ -733,7 +733,7 @@ among them, while the memory write inside that same tree still succeeded — whi
 claim is about.
 
 ### C-67 — `metaspace status` reports the mode actually in force, and where it came from
-`[PROVEN]`-shaped but **STATUS:** PLANNED · **TIER:** N/A · **RELATED:** O-23
+`[PROVEN]` · **STATUS:** PROVEN · **TIER:** N/A · **RELATED:** O-23, O-13
 There is no way to ask the tool what it is doing. `install`, `enforce` and `dryrun` write a mode
 and the panel displays one, but nothing reports the mode a hook invocation would actually use —
 which can differ, because hosts layer their settings and a project file wins over a user file. The
@@ -741,6 +741,36 @@ hook already computes `mode_src` on every decision and writes it to the audit; n
 it. **Acceptance:** a command that prints the effective mode, the constitution path in force, and
 which precedence step decided each (`env` / project settings / user file / built-in), verified on
 a machine where the two layers disagree.
+**PROOF:** `run_c67_status_proof` · **VERIFIED:** Windows (2026-09-12), hermetic
+
+**MEASURED 2026-09-12 — 12 checks, hermetic (HOME/USERPROFILE redirected to a temp directory,
+so nothing depends on the developer's machine, per C-61).**
+
+`metaspace status` reports the effective mode, the constitution in force, the deciding layer for
+each, and the full precedence table with every overridden layer still visible:
+
+| leg | what it pins |
+|---|---|
+| A | env vs user file disagreeing: the winner, the loser, **and the O-13 split** — it names the mode a host that ignores `env` would get instead |
+| B | the **project registry beats env**, and the table marks which row is in force |
+| C | the hook's audit `mode_src` **agrees with** `status` — one story, not two |
+| D | on an unconfigured machine the built-in default is *named as a source*, not silently assumed |
+
+**A defect this uncovered, and fixed.** The precedence is four layers deep — project registry,
+env, user file, built-in — and the registry wins, because the hook resolves it after the
+defaults. The hook's own `mode_src` diagnostic knew only the last three. On a registered project
+it therefore recorded `env` (or `user-file`) while the registry had decided: the audit told a
+confident, wrong story about the very thing it exists to make visible. `mode_src` now reports
+`project`.
+
+**The test can fail, and was shown to.** Run against the pre-fix hook, leg C goes red on exactly
+the two checks that matter (`mode_src` = `'env'` where the registry decided). A green result
+means something only because the red one was demonstrated first.
+
+**What this does NOT say.** It reports configuration, not enforcement: `status` says which mode
+*would* be used, not that a particular tool call was mediated — that is the audit's job, and O-33
+still governs what the membrane can see at all. It also reads the same files the hook reads; it
+is not an independent observer of a running session.
 
 ### C-68 — A heredoc body is data, not a list of commands
 `[PROVEN]` · **TIER:** N/A · **STATUS:** PROVEN · **DEPENDS:** C-02 · **Resolves:** O-24

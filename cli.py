@@ -760,6 +760,94 @@ def _run_hard(bio_path, root, target, prog):
     return p.returncode if payload is None else (1 if err else 0)
 
 
+def _resolution(root, with_env):
+    """Reproduce EXACTLY what a hook invocation resolves, for one host scenario.
+
+    `with_env=False` models a host that ignores the settings `env` block (Cursor, O-13); the
+    same machine can therefore be in two different modes depending on who invokes the hook,
+    and that is precisely the silent downgrade this command exists to surface.
+
+    Returns (mode, mode_src, bio, bio_src) where *_src is one of
+    project / env / user-file / built-in -- the same vocabulary the audit records.
+    """
+    from core import project_config as pc
+    builtin_bio = os.path.join(HERE, "products", "ai_membrane", "session.constitution.bio")
+    env_mode = os.environ.get("METASPACE_MODE") if with_env else None
+    env_bio = os.environ.get("METASPACE_SESSION_BIO") if with_env else None
+    d = pc.load_defaults()
+
+    mode = (env_mode or d.get("mode") or "enforce").strip().lower()
+    mode_src = "env" if env_mode else ("user-file" if d.get("mode") else "built-in")
+    bio = env_bio or d.get("bio") or builtin_bio
+    bio_src = "env" if env_bio else ("user-file" if d.get("bio") else "built-in")
+
+    # the per-project registry wins over BOTH -- this is the step the audit's mode_src used to
+    # omit, so a registered project reported "env" while the registry had decided
+    try:
+        entry = pc.load_registry().get(pc.norm(root))
+        if entry:
+            pbio = os.path.join(pc.projects_dir(), str(entry.get("hash")) + ".bio")
+            if os.path.exists(pbio):
+                mode = str(entry.get("mode", mode)).lower()
+                bio = pbio
+                mode_src = bio_src = "project"
+    except Exception:
+        pass
+    return mode, mode_src, bio, bio_src
+
+
+def cmd_status(args):
+    """Print the mode and constitution a hook invocation would actually use, and which
+    precedence step decided each. Nothing here infers: every line names its source."""
+    from core import project_config as pc
+    root = os.path.abspath(args.root) if args.root else os.getcwd()
+    d = pc.load_defaults()
+    env_mode = os.environ.get("METASPACE_MODE")
+    env_bio = os.environ.get("METASPACE_SESSION_BIO")
+
+    with_env = _resolution(root, True)
+    no_env = _resolution(root, False)
+
+    print("MetaSpace - effective configuration")
+    print("  working directory : %s" % root.replace("\\", "/"))
+    print()
+    print("  effective mode    : %-10s  <- %s" % (with_env[0], with_env[1]))
+    print("  constitution      : %s" % str(with_env[2]).replace("\\", "/"))
+    print("                      %s<- %s" % (" " * 0, with_env[3]))
+    print()
+    print("  precedence (first match wins)")
+    entry = None
+    try:
+        entry = pc.load_registry().get(pc.norm(root))
+    except Exception:
+        pass
+    rows = [
+        ("1 project registry", "mode=%s" % (entry.get("mode") if entry else "-"),
+         "registered" if entry else "not registered", "project"),
+        ("2 environment", "METASPACE_MODE=%s" % (env_mode or "-"),
+         "set" if env_mode else "unset", "env"),
+        ("3 user file", "mode=%s" % (d.get("mode") or "-"),
+         "set" if d.get("mode") else "unset", "user-file"),
+        ("4 built-in", "mode=enforce", "always", "built-in"),
+    ]
+    for label, val, state, src in rows:
+        mark = "  ** IN FORCE **" if src == with_env[1] else ""
+        print("    %-20s %-28s %s%s" % (label, val, state, mark))
+    print()
+    print("  audit log         : %s" % os.path.join(root, ".metaspace", "session_audit.jsonl").replace("\\", "/"))
+
+    if with_env[:2] != no_env[:2]:
+        print()
+        print("  ! THIS MACHINE IS IN TWO MODES AT ONCE (O-13)")
+        print("    a host that propagates the settings `env` block (Claude Code) sees:")
+        print("        mode %s  (from %s)" % (with_env[0], with_env[1]))
+        print("    a host that does not (Cursor, and any host invoking the hook directly) sees:")
+        print("        mode %s  (from %s)" % (no_env[0], no_env[1]))
+        print("    The user-level file exists so the two cannot diverge silently; they diverge")
+        print("    here because the environment says something the file does not.")
+    return 0
+
+
 def cmd_run(args):
     """App membrane: run a program confined to a .bio — it can only produce the effects its
     constitution grants (deny-by-default). Python target -> in-process membrane (any OS);
@@ -999,6 +1087,10 @@ def build_parser():
     ui.add_argument("--port", type=int, default=0, help="port (default: a free one)")
     ui.add_argument("--no-browser", action="store_true", help="don't auto-open the browser")
     ui.set_defaults(fn=cmd_ui)
+
+    st = sub.add_parser("status", help="what mode and constitution are actually in force here, and why")
+    st.add_argument("--root", default=None, help="the working directory to report on (default: cwd)")
+    st.set_defaults(fn=cmd_status)
 
     pr = sub.add_parser("projects", help="list working directories with their own membrane config")
     pr.set_defaults(fn=cmd_projects)

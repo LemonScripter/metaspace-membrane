@@ -228,9 +228,15 @@ def main():
 
     # resolve THIS project's constitution + mode (per-working-directory config, stored user-level
     # under ~/.claude); fall back to the install defaults. Never fatal.
+    from_project = False
     try:
         from core import project_config
         bio_path, enforce_mode = project_config.resolve(PROJECT_ROOT, DEFAULT_BIO, DEFAULT_MODE)
+        # record WHETHER the registry decided, not just what it decided: the diagnostic below
+        # used to report env/user-file/built-in only, so a registered project logged the wrong
+        # source while the registry was in fact overriding both (C-67)
+        from_project = (bio_path is not None and bio_path != DEFAULT_BIO) or \
+                       (enforce_mode != DEFAULT_MODE)
         bio_path = bio_path or DEFAULT_BIO
     except Exception:
         bio_path, enforce_mode = DEFAULT_BIO, DEFAULT_MODE
@@ -305,7 +311,8 @@ def main():
         "mode_from_env": "METASPACE_MODE" in os.environ,
         "bio_from_env": "METASPACE_SESSION_BIO" in os.environ,
         # where the default actually came from, so an O-13-style silent downgrade is visible
-        "mode_src": ("env" if "METASPACE_MODE" in os.environ
+        "mode_src": ("project" if from_project
+                     else "env" if "METASPACE_MODE" in os.environ
                      else "user-file" if _DEFAULTS.get("mode") else "built-in"),
     }
 
