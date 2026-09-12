@@ -57,6 +57,7 @@ PROOFS = [
     ("C-75: a Python program kernel-confined through the routes that defeat the language membrane", "evidence/run_c75_interpreter_proof.py"),
     ("C-77: `run --hard` composes both membranes, or refuses to run", "evidence/run_c77_composed_proof.py"),
     ("C-67: the effective mode and the layer that decided it are reportable", "evidence/run_c67_status_proof.py"),
+    ("C-78: a compromised WordPress plugin cannot write WordPress core", "evidence/run_c78_wordpress_core_proof.py"),
     ("Team/CI gate: only a ratified, unbroadened .bio passes (M4)", "evidence/run_team_gate_e2e.py"),
     ("Roadmap/claim ledger integrity: claim = proof, machine-checked", "evidence/run_roadmap_proof.py"),
     ("Cursor host compatibility: one hook, two hosts, same verdicts", "evidence/run_cursor_compat_proof.py"),

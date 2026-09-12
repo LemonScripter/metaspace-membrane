@@ -88,7 +88,9 @@ Reproduce everything: `python run_proofs.py` (needs `pip install metaspace-membr
 | C-39 | Hard containment on a second, named AI agent (Cursor) | HARD | PROVEN |
 | C-40 | Any Linux process confined by its `.bio` | HARD | WONTDO |
 | C-41 | MCP-mediated effects contained across MCP servers | — | BLOCKED |
-| C-42 | WordPress: compromised plugin cannot write core or exec | HARD | PLANNED |
+| C-42 | WordPress: compromised plugin cannot write core or exec | HARD | WONTDO |
+| C-78 | WordPress: a compromised plugin cannot write core | HARD | PROVEN |
+| C-79 | WordPress: a compromised plugin cannot exec | HARD | PLANNED |
 | C-43 | Cross-OS verification on macOS | N/A | BLOCKED |
 | C-44 | Empirical four-variable survey of target agents | N/A | IN-PROGRESS |
 | C-45 | Roadmap and claim integrity is machine-checked | N/A | PROVEN |
@@ -490,10 +492,79 @@ server process under C-40. The TIER cannot be fixed until this is decided.
 **PROOF:** *(planned)*
 
 ### C-42 — A compromised WordPress plugin cannot write WordPress core and cannot exec
-**TIER:** HARD · **STATUS:** PLANNED · **DEPENDS:** C-40
+**TIER:** HARD · **STATUS:** WONTDO · **SUPERSEDED-BY:** C-78, C-79
 **CONDITION:** Linux; `php-fpm` launched under the substrate (O-6 is an accepted limit, already
 stated in this CONDITION). Serving mode only — plugin/theme
 updates require a wider maintenance scope.
+
+**WONTDO 2026-09-12 — re-expressed, not withdrawn, because the measurement split it.** The row
+asserted two things with one `and`, and they turned out to have different answers. Measured on
+2026-09-12 (dcc-proof2, Landlock ABI 2): every write attack — core, the plugin's own directory,
+`wp-config.php`, core deletion — is refused under the substrate, while **all three exec routes
+(`shell_exec`, `exec`, `proc_open`) run exactly as they do unconfined.** Keeping both halves in
+one HARD row would have made the row unprovable, and asserting it as written would have been
+false in its second half. Split into **C-78** (writes, proven) and **C-79** (exec, planned).
+
+### C-78 — A compromised WordPress plugin cannot write WordPress core
+`[PROVEN]` · **TIER:** HARD · **STATUS:** PROVEN · **DEPENDS:** C-75 · **SUPERSEDES:** C-42 (write half)
+**CONDITION:** Linux with Landlock ABI ≥ 2; the **PHP CLI** interpreter launched under the
+enforcer; serving-mode constitution granting `wp-content/uploads/**` and nothing else. Measured
+on Debian 6.1.0-52-amd64, PHP 8.2.33, dcc-proof2, 2026-09-12.
+⚠ **`php-fpm` was NOT measured.** C-42 named it; this row does not. The inheritance argument (a
+pool worker forked from a confined master stays confined — C-75's fork/exec leg) is an
+*argument* here, not a measurement, and must not be cited as one.
+
+**Attacker model:** the plugin is **already running inside the PHP process**. No exploit is
+simulated because none is needed — a compromised plugin simply is PHP code holding WordPress's
+own authority. This is the case where "authorised" and "malicious" coincide.
+
+| attack | plugin running free | under the substrate |
+|---|---|---|
+| overwrite `wp-includes/version.php` (core) | **DID** | refused |
+| write a backdoor into its own plugin directory | **DID** | refused |
+| overwrite `wp-config.php` (DB credentials) | **DID** | refused |
+| delete a core file | **DID** | refused |
+| write `wp-content/uploads/` (**granted**) | DID | **DID** |
+
+Verified from outside, on **two separate trees**: the free tree's core is defaced, the confined
+tree's core is byte-for-byte intact.
+
+**Why the free column is load-bearing.** Without it the confined zeros would only show that the
+probe never ran. Every attack succeeds when unconfined, so the refusals are containment.
+
+**Language independence is the point.** Nothing in the substrate knows what PHP is. C-75 proved
+the mechanism for a Python program; this is the same mechanism meeting a different language and
+a real application shape, and it needed no new code.
+
+**PROOF:** `run_c78_wordpress_core_proof` · **VERIFIED:** Linux (2026-09-12)
+
+### C-79 — A compromised WordPress plugin cannot exec
+**TIER:** HARD · **STATUS:** PLANNED · **DEPENDS:** C-75 · **SUPERSEDES:** C-42 (exec half)
+**CONDITION:** *(to be stated when the mechanism exists.)*
+
+**Measured today as FALSE, which is why it is its own row.** `shell_exec`, `exec` and
+`proc_open` all ran under the substrate exactly as they did free. `sandbox_enforcer` deliberately
+leaves Landlock's `EXECUTE` access unhandled, because handling it without granting the
+interpreter's own binary and its libraries would stop any dynamically-linked program from
+starting at all.
+
+**No BLOCKED-BY, deliberately.** It was tempting to open an obstacle for this, but that would
+repeat the O-8 mistake: the register is for what *prevents* a claim, not for the work that *is*
+it. Handling `EXECUTE` is buildable, and the `.bio` already has the vocabulary — `SUBPROCESS exec`
+is an existing capability kind, so no new kind is needed and O-3's provenance problem does not
+arise.
+
+**Acceptance.** With `EXECUTE` handled: the confined interpreter still starts (its own binary and
+the loader/libraries granted), a granted program can be exec'd, and an **ungranted** one is
+refused by the kernel — measured on all three PHP routes, with the free-run control showing each
+would otherwise succeed. The allowlist is over *programs*, not over syscall spellings, so it is a
+capability list rather than the enumeration trap of O-30.
+
+**Until then, stated plainly:** a WordPress install confined this way is protected against
+persistence and core tampering, **not** against command execution. The proof for C-78 pins this
+mechanically — it asserts exec still runs, so the day this row moves, that proof goes red and
+both must be updated together.
+
 **PROOF:** *(planned)*
 
 ### C-43 — Cross-OS verification on macOS

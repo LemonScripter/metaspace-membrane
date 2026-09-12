@@ -33,7 +33,26 @@ Reproduce any claim: `python run_proofs.py` (needs `pip install metaspace-membra
   directory did not exist yet was silently dropped from the ruleset, so a program could not write
   where its own `.bio` allowed — over-restriction that looks exactly like containment.
 
+- **C-78 — a compromised WordPress plugin cannot write WordPress core.** The plugin is already
+  running inside the PHP process, which is what "compromised plugin" means; no exploit is
+  simulated because none is needed. Under the substrate, with a serving-mode constitution
+  granting `wp-content/uploads/**` and nothing else, it could not overwrite core, plant a
+  backdoor in its own directory, rewrite `wp-config.php`, or delete a core file — while the
+  granted uploads write still worked. Verified from outside on two separate trees: the free
+  tree's core is defaced, the confined tree's is intact. Nothing in the substrate knows what PHP
+  is; this is C-75's mechanism meeting a second language and a real application shape, with no
+  new code. Measured on Debian 6.1.0-52-amd64, PHP 8.2.33, Landlock ABI 2. New runner:
+  `evidence/run_c78_wordpress_core_proof.py`. ⚠ `php-fpm` was **not** measured — the CLI
+  interpreter was.
+
 ### Changed
+- **C-42 is WONTDO — split by measurement.** It asserted that a compromised plugin can neither
+  write core **nor** exec. The writes are refused; **all three exec routes (`shell_exec`,
+  `exec`, `proc_open`) run under the substrate exactly as they do free**, because the enforcer
+  deliberately leaves Landlock's `EXECUTE` unhandled so dynamically-linked programs can start.
+  Split into **C-78** (writes, proven) and **C-79** (exec, planned, with acceptance criteria).
+  Until C-79 lands: an install confined this way is protected against persistence and core
+  tampering, **not** against command execution — and C-78's proof pins that limit mechanically.
 - **C-40 is WONTDO — re-expressed, not withdrawn.** It bundled two claims of very different
   difficulty ("any Linux process, in any language, confined to its `.bio`"), and the kinds do not
   share a substrate, so the weaker half held the stronger one BLOCKED indefinitely. Split into

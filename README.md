@@ -142,6 +142,7 @@ python products/app_membrane/wasi/run_wasi_demo.py    # real Rust program contai
 python evidence/run_landlock_demo.py                  # real native program OS-confined by .bio (Linux/Landlock, M3)
 python evidence/run_c75_interpreter_proof.py          # a Python program kernel-confined where the language guard leaks (C-75)
 python evidence/run_c77_composed_proof.py             # run --hard: both membranes in one run, or a refusal (C-77)
+python evidence/run_c78_wordpress_core_proof.py        # a compromised WordPress plugin cannot write core (C-78)
 python evidence/demos/run_synth_demo.py               # code -> constitution -> enforcement (closed loop)
 python evidence/demos/run_ratify_demo.py              # ratification is content-bound (tamper detected)
 python evidence/demos/run_gate_demo.py                # production gate: only RATIFIED runs
